@@ -25,6 +25,14 @@ class App2Service:
         Initializes the service and configures the Google AI client.
         """
         self.gemini_model = None
+                # --- ADD THE DEBUG PRINT BLOCK HERE ---
+        print("-" * 20)
+        print(f"DEBUG [App2Service]: Received GOOGLE_API_KEY: "
+              f"'{settings.GOOGLE_API_KEY}'" # Print full key for debug if safe in local env
+              if settings.GOOGLE_API_KEY else "DEBUG [App2Service]: Received GOOGLE_API_KEY is None or Empty")
+        print("-" * 20)
+        # --- END DEBUG PRINT BLOCK ---
+
         if settings.GOOGLE_API_KEY:
             try:
                 # Configure the library with the API key from settings
