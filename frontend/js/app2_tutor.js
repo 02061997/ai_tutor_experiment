@@ -1,5 +1,5 @@
 // frontend/js/app2_tutor.js
-// Updated for 3-Step Flow & Correct Module Imports
+// Updated for 3-Step Flow & Integrated PDF Text Extraction + Summary API Call
 'use strict';
 
 // --- Module Imports ---
@@ -9,8 +9,7 @@ import * as pdfTracker from './modules/pdf_tracker.js';
 import * as heatmapTracker from './modules/heatmap_tracker.js';
 import * as quizUi from './modules/quiz_ui.js';
 
-// **** Import specific component from pdf.mjs ****
-// Path is relative to THIS file (app2_tutor.js is in js/)
+// Import specific component from pdf.mjs
 import { GlobalWorkerOptions } from './libs/pdfjs/build/pdf.mjs';
 
 // --- DOM References ---
@@ -80,42 +79,29 @@ async function initApp() {
     currentSessionId = getSessionIdFromUrl();
     if (!currentSessionId) return;
 
-    // **** Configure PDF.js worker using imported object ****
-    // Check if the imported GlobalWorkerOptions exists
+    // Configure PDF.js worker using imported object
     if (typeof GlobalWorkerOptions !== 'undefined') {
         GlobalWorkerOptions.workerSrc = PDF_WORKER_SRC;
         console.log("PDF.js worker source set via GlobalWorkerOptions.");
     } else {
-        // This case should ideally not happen if pdf.mjs loaded correctly as a module
         console.error("PDF.js GlobalWorkerOptions is not available. Worker path not set.");
         document.body.innerHTML = '<h1>Error: PDF Library components failed to load.</h1>';
-        return; // Stop initialization if PDF.js components aren't loaded
+        return;
     }
-    // **** End PDF worker config ****
 
     try {
         // Show only the learning interface initially
         showView('learning-interface-view');
 
-        // Fetch Initial Session Data (Placeholder - determine actual PDF URL)
-        // Example: Use session details if available, otherwise default
-        // try {
-        //     const sessionDetails = await apiClient.getSessionDetails(currentSessionId);
-        //     assignedPaperUrl = sessionDetails.assignedPaper === 'Paper1' ? '/static/pdfs/paper1.pdf' : '/static/pdfs/paper2.pdf'; // Adjust paths
-        // } catch (e) {
-        //     console.warn("Could not fetch session details, using default paper.", e);
-             assignedPaperUrl = '/static/pdfs/chapter1.pdf'; // Default Placeholder - ADJUST PATH AS NEEDED
-        // }
-
+        // Determine PDF URL (Placeholder logic)
+        assignedPaperUrl = '/static/pdfs/chapter1.pdf'; // Placeholder - ADJUST PATH AS NEEDED
         if (assignedPaperNameElement) {
             assignedPaperNameElement.textContent = assignedPaperUrl.split('/').pop();
         } else {
              console.warn("Element 'assigned-paper-name' not found.");
         }
 
-
-        // Initialize PDF Viewer (pdf_viewer.js now imports its own dependencies)
-        // This will load and render the first page
+        // Initialize PDF Viewer - this loads the PDF
         await pdfViewer.initPdfViewer({
             containerId: 'pdf-viewer-area', canvasId: 'pdf-canvas', textLayerId: 'text-layer',
             pdfUrl: assignedPaperUrl,
@@ -124,12 +110,13 @@ async function initApp() {
         });
         console.log("PDF Viewer Initialized.");
 
-        // Initialize Interaction Trackers (can start tracking learning view now)
+        // Initialize Interaction Trackers
         pdfTracker.initPdfInteractionTracker(currentSessionId, 'pdf-viewer-area', assignedPaperUrl);
         heatmapTracker.initHeatmapTracker(currentSessionId, 'pdf-viewer-area');
         console.log("Interaction Trackers Initialized.");
 
-        // Fetch and display AI Summary (Placeholder)
+        // Fetch and display AI Summary (Now uses text extraction and API call)
+        // Run this *after* PDF is loaded by initPdfViewer
         await fetchAndDisplaySummary();
 
         // Initialize Quiz UI module (it will be hidden initially by CSS/showView)
@@ -144,37 +131,49 @@ async function initApp() {
         // Add event listener for the "Start Quiz" button
         proceedToQuizButton?.addEventListener('click', startQuizPhase);
 
-
     } catch (error) {
         console.error("Initialization failed:", error);
-        // Use querySelector for potentially missing container
         const mainContainer = document.querySelector('.app2-main-container');
         if(mainContainer) mainContainer.innerHTML = `<h1>Application Initialization Failed</h1><p>${error.message}</p>`;
     }
 }
 
 /**
- * Fetches and displays the AI-generated summary (Placeholder).
+ * Fetches and displays the AI-generated summary.
+ * Extracts text from the PDF first, then calls the backend summary API.
  */
 async function fetchAndDisplaySummary() {
     if (!summaryContentElement) return;
-    summaryContentElement.innerHTML = '<p><i>Fetching summary from AI...</i></p>';
+    summaryContentElement.innerHTML = '<p><i>Extracting text for summary...</i></p>'; // Update status
+
     try {
-        // TODO: Implement backend endpoint and API client function for summary
-        // const summaryResponse = await apiClient.getApp2Summary(currentSessionId, assignedPaperUrl);
-        // const summaryText = summaryResponse.summary_text;
+        // 1. Extract text from the loaded PDF (extract all pages for now)
+        // Ensure pdfViewer module and function exist and PDF is loaded
+        if (typeof pdfViewer?.extractTextFromPdf !== 'function') {
+             throw new Error("PDF text extraction function is not available.");
+        }
+        const pdfText = await pdfViewer.extractTextFromPdf(); // Extract text from all pages
+        if (!pdfText || pdfText.trim().length === 0) {
+            throw new Error("Could not extract text from PDF for summary.");
+        }
+        console.log(`Extracted ${pdfText.length} characters for summary.`);
+        summaryContentElement.innerHTML = '<p><i>Generating summary from AI...</i></p>'; // Update status
 
-        // Placeholder:
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate delay
-        const summaryText = `This is a placeholder summary for ${assignedPaperUrl}. The actual summary would be generated by Gemini Flash based on the paper content. It would provide a concise overview of the main points, findings, and conclusions presented in the research paper.`;
-        // End Placeholder
+        // 2. Call the backend API to get the summary
+        // Ensure apiClient module and function exist
+        if (typeof apiClient?.getApp2Summary !== 'function') {
+             throw new Error("API client function for summary is not available.");
+        }
+        const summaryResponse = await apiClient.getApp2Summary(pdfText);
+        const summaryText = summaryResponse.summary_text;
 
-        // Display summary
+        // 3. Display the summary
         summaryContentElement.innerHTML = ''; // Clear loading message
         const summaryPara = document.createElement('p');
-        summaryPara.style.whiteSpace = 'pre-wrap'; // Preserve line breaks
+        summaryPara.style.whiteSpace = 'pre-wrap'; // Preserve line breaks from summary
         summaryPara.textContent = summaryText;
         summaryContentElement.appendChild(summaryPara);
+        console.log("Summary displayed.");
 
     } catch (error) {
         console.error("Failed to fetch or display summary:", error);
@@ -189,8 +188,6 @@ async function fetchAndDisplaySummary() {
 async function startQuizPhase() {
     console.log("Starting Quiz Phase...");
     showView('quiz-container'); // Show the quiz container, hide others
-
-    // Disable button after clicking
     if(proceedToQuizButton) {
         proceedToQuizButton.disabled = true;
         proceedToQuizButton.textContent = 'Quiz in Progress...';
@@ -205,13 +202,11 @@ async function startQuizPhase() {
             // Display the first question using the initialized Quiz UI module
             quizUi.displayQuestion(startResponse.first_question);
         } else {
-            // Handle cases where the API response might be invalid
             throw new Error("Failed to start quiz or received invalid response from API.");
         }
     } catch (error) {
         console.error("Failed to start quiz phase:", error);
         quizUi.showFeedback(`Error starting quiz: ${error.message}`, true);
-        // Optionally switch back to learning view or show error prominently
         showView('learning-interface-view'); // Example: Go back on error
         if(proceedToQuizButton){ // Re-enable the button if going back
             proceedToQuizButton.disabled = false;
@@ -226,27 +221,14 @@ async function startQuizPhase() {
  */
 async function handleQuizAnswerSubmit(selectedAnswer) {
     console.log("Orchestrator: Submitting answer:", selectedAnswer);
-    if (!currentAttemptId || selectedAnswer === null) {
-        console.error("Cannot submit answer: Missing attempt ID or answer data.");
-        quizUi.showFeedback("Error: Could not submit answer. Invalid data.", true);
-        return;
-    }
-
-    // Disable submit button while processing via Quiz UI module
-    quizUi.setSubmitButtonState(false);
-    quizUi.clearFeedback(); // Clear previous feedback
-
+    if (!currentAttemptId || selectedAnswer === null) { console.error("Cannot submit answer: Missing attempt ID or answer data."); quizUi.showFeedback("Error: Could not submit answer. Invalid data.", true); return; }
+    quizUi.setSubmitButtonState(false); quizUi.clearFeedback();
     try {
-        // Submit answer via API client
         const response = await apiClient.submitQuizAnswer(currentAttemptId, selectedAnswer);
-
-        // Check if the quiz is complete based on the response
         if (response.is_complete) {
             console.log("Orchestrator: Quiz Complete!", response);
-            quizResultsData = response; // Store results for recommendations phase
-            quizUi.displayCompletion(response); // Update UI to show completion message/final score
-
-            // Make the "Show Recommendations" button visible and add listener
+            quizResultsData = response;
+            quizUi.displayCompletion(response);
             if (showRecommendationsButton) {
                 showRecommendationsButton.style.display = 'inline-block';
                 showRecommendationsButton.disabled = false;
@@ -255,24 +237,15 @@ async function handleQuizAnswerSubmit(selectedAnswer) {
                 showRecommendationsButton.parentNode.replaceChild(newButton, showRecommendationsButton);
                 newButton.addEventListener('click', startRecommendationsPhase);
             }
-            // Keep quiz answer submit button disabled after completion
             quizUi.setSubmitButtonState(false);
-
         } else if (response.next_question) {
-            // If quiz not complete, display the next question
             console.log("Orchestrator: Displaying next question.");
-            quizUi.displayQuestion(response.next_question); // Quiz UI should handle re-enabling submit button
-        } else {
-             // Handle unexpected response structure
-             console.error("Orchestrator: Invalid response from submitQuizAnswer:", response);
-             quizUi.showFeedback("Error: Received invalid response from server.", true);
-             quizUi.setSubmitButtonState(true); // Re-enable on unexpected error
-        }
-
+            quizUi.displayQuestion(response.next_question);
+        } else { console.error("Orchestrator: Invalid response from submitQuizAnswer:", response); quizUi.showFeedback("Error: Received invalid response from server.", true); quizUi.setSubmitButtonState(true); }
     } catch (error) {
         console.error("Orchestrator: Error submitting quiz answer:", error);
         quizUi.showFeedback(`Error submitting answer: ${error.message || 'Please try again.'}`, true);
-        quizUi.setSubmitButtonState(true); // Re-enable button on error
+        quizUi.setSubmitButtonState(true);
     }
 }
 
@@ -281,62 +254,39 @@ async function handleQuizAnswerSubmit(selectedAnswer) {
  */
 async function startRecommendationsPhase() {
      console.log("Starting Recommendations Phase...");
-     showView('recommendations-view'); // Show recommendations container
-
+     showView('recommendations-view');
      if (!recommendationsListElement) return;
-     recommendationsListElement.innerHTML = '<li><i>Loading recommendations based on quiz results...</i></li>';
-
+     recommendationsListElement.innerHTML = '<li><i>Loading recommendations...</i></li>';
      try {
          // --- Placeholder for fetching Recommendations ---
-         // TODO: 1. Implement backend endpoint/service to generate recommendations based on quizResultsData (e.g., weak topics) using Gemini.
-         // TODO: 2. Add function to api_client.js (e.g., getRecommendations(sessionId, attemptId))
-         // TODO: 3. Call API client here:
+         // TODO: Implement backend endpoint/service for recommendations
          // const recommendationsResponse = await apiClient.getRecommendations(sessionId, currentAttemptId);
-         // const recommendations = recommendationsResponse.recommendations || []; // Assuming response structure
+         // const recommendations = recommendationsResponse.recommendations || [];
 
-         // Placeholder: Use weak topics directly from quiz results if available
+         // Placeholder: Use weak topics directly from quiz results
          const recommendations = quizResultsData?.identified_weak_topics || ["No specific topics identified for review (placeholder)."];
-         await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
+         await new Promise(resolve => setTimeout(resolve, 500));
          // --- End Placeholder ---
 
-         // Display recommendations
-         recommendationsListElement.innerHTML = ''; // Clear loading message
+         recommendationsListElement.innerHTML = '';
          if (recommendations && recommendations.length > 0 && recommendations[0] !== "No specific topics identified for review (placeholder).") {
-             recommendations.forEach(topic => {
-                 const li = document.createElement('li');
-                 li.textContent = topic; // Consider escaping if topic names could contain HTML
-                 recommendationsListElement.appendChild(li);
-             });
-         } else {
-             recommendationsListElement.innerHTML = '<li>No specific recommendations available at this time.</li>';
-         }
-
-         // Add event listeners for navigation buttons within recommendations view
+             recommendations.forEach(topic => { const li = document.createElement('li'); li.textContent = topic; recommendationsListElement.appendChild(li); });
+         } else { recommendationsListElement.innerHTML = '<li>No specific recommendations available at this time.</li>'; }
+         // Add event listeners
          reviewPaperButton?.addEventListener('click', () => showView('learning-interface-view'));
-         reviewQuizButton?.addEventListener('click', () => showView('quiz-container')); // Note: Quiz state isn't reset here, shows completion view
-         takeFinalTestButton?.addEventListener('click', () => {
-             console.log("Proceeding to Final Test...");
-             window.location.href = `final_test.html?session=${currentSessionId}`; // Redirect to final test page
-         });
-
+         reviewQuizButton?.addEventListener('click', () => showView('quiz-container'));
+         takeFinalTestButton?.addEventListener('click', () => { console.log("Proceeding to Final Test..."); window.location.href = `final_test.html?session=${currentSessionId}`; });
      } catch (error) {
          console.error("Failed to load or display recommendations:", error);
          recommendationsListElement.innerHTML = `<li style="color: red;">Error loading recommendations: ${error.message}</li>`;
      }
 }
 
-
 // --- Application Entry Point ---
 document.addEventListener('DOMContentLoaded', initApp);
 
 // --- Unload Listener ---
-// Tries to send any remaining buffered interactions before the page unloads
 window.addEventListener('beforeunload', () => {
-    // Check if tracker modules and functions exist before calling
-    if (typeof pdfTracker?.sendBufferedPdfInteractions === 'function') {
-        pdfTracker.sendBufferedPdfInteractions();
-    }
-    if (typeof heatmapTracker?.sendBufferedHeatmapInteractions === 'function') {
-        heatmapTracker.sendBufferedHeatmapInteractions();
-    }
+    if (typeof pdfTracker?.sendBufferedPdfInteractions === 'function') { pdfTracker.sendBufferedPdfInteractions(); }
+    if (typeof heatmapTracker?.sendBufferedHeatmapInteractions === 'function') { heatmapTracker.sendBufferedHeatmapInteractions(); }
 });

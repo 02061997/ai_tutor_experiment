@@ -304,3 +304,49 @@ export function getCurrentScale() {
     return currentScale;
 }
 
+
+// --- NEW FUNCTION ---
+/**
+ * Extracts text content from a specific page or the entire document.
+ * @param {number|null} [pageNumToExtract=null] - Specific page number (1-based). If null, extracts from all pages.
+ * @returns {Promise<string>} - A promise that resolves with the extracted text.
+ */
+export async function extractTextFromPdf(pageNumToExtract = null) {
+    // Check if the PDF document object is loaded
+    if (!pdfDoc) {
+        console.error("Cannot extract text: PDF document not loaded.");
+        throw new Error("PDF not loaded");
+    }
+
+    let fullText = ""; // Initialize empty string to accumulate text
+    // Determine the range of pages to process
+    const startPage = pageNumToExtract ? pageNumToExtract : 1;
+    const endPage = pageNumToExtract ? pageNumToExtract : pdfDoc.numPages;
+
+    console.log(`Extracting text from page(s) ${startPage} to ${endPage}...`);
+
+    try {
+        // Loop through the specified page range
+        for (let i = startPage; i <= endPage; i++) {
+            // Get the page object
+            const page = await pdfDoc.getPage(i);
+            // Get the structured text content from the page
+            const textContent = await page.getTextContent();
+
+            // Map through the text items and join their string content
+            // A simple space join is used here. For more complex documents,
+            // analyzing item positions might be needed for better paragraph breaks.
+            const pageText = textContent.items.map(item => item.str).join(' ');
+
+            // Append the page's text to the full text, adding newlines between pages
+            fullText += pageText + "\n\n";
+        }
+        console.log(`Text extraction complete. Length: ${fullText.length}`);
+        return fullText.trim(); // Return the combined text, removing leading/trailing whitespace
+
+    } catch (error) {
+        console.error(`Error extracting text from PDF: ${error}`);
+        throw new Error(`Failed to extract text from PDF: ${error.message}`);
+    }
+}
+// --- END NEW FUNCTION ---
