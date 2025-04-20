@@ -12,6 +12,8 @@ from backend.api.v1.endpoints import quiz
 from backend.api.v1.endpoints import dashboard
 from backend.api.v1.endpoints import test
 from backend.api.v1.endpoints import app1
+from backend.api.v1.endpoints import app2
+
 # Import tutoring endpoint router if/when created
 # from backend.api.v1.endpoints import tutoring
 
@@ -28,4 +30,6 @@ api_router_v1.include_router(dashboard.router, prefix="/dashboard", tags=["Dashb
 api_router_v1.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 api_router_v1.include_router(test.router, prefix="/final-test", tags=["Test"])
 api_router_v1.include_router(app1.router, prefix="/app1", tags=["App1"])
+api_router_v1.include_router(app2.router, prefix="/app2", tags=["App2"])
+
 # api_router_v1.include_router(tutoring.router, prefix="/tutoring", tags=["Tutoring"]) # Example if tutoring endpoints exist
