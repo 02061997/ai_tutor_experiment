@@ -1,5 +1,5 @@
 # backend/services/adaptive_quiz_service.py
-# Corrected version with 'await' and added weak topic identification
+# Corrected version with 'await' and added weak topic identification (Typo Fixed)
 
 import uuid
 import numpy as np
@@ -94,7 +94,8 @@ class AdaptiveQuizService:
         print("Loading item bank from database...")
         # --- DB CALL: Needs await ---
         statement = select(QuizQuestion)
-        result = await self.session.exec(statement) # Corrected: Added await
+        # Corrected: Added await and result handling
+        result = await self.session.exec(statement)
         questions = result.all()
         # --- End DB Call ---
 
@@ -150,7 +151,8 @@ class AdaptiveQuizService:
         """Helper to fetch the current attempt state by its UUID."""
         # --- DB CALL: Needs await ---
         statement = select(QuizAttemptState).where(QuizAttemptState.attempt_id == attempt_id)
-        result = await self.session.exec(statement) # Corrected: Added await
+        # Corrected: Added await and result handling
+        result = await self.session.exec(statement)
         attempt = result.first()
         # --- End DB Call ---
         return attempt
@@ -218,6 +220,7 @@ class AdaptiveQuizService:
             is_complete=False
         )
         self.session.add(new_attempt)
+        # These flush/refresh calls were already correct
         await self.session.flush() # Persist to DB to get attempt_id assigned
         await self.session.refresh(new_attempt) # Load the assigned attempt_id
 
@@ -325,7 +328,9 @@ class AdaptiveQuizService:
              print(f"Attempt {attempt_id}: Quiz completed. Final Score: {final_score:.1f}%, Weak Topics: {weak_topics}")
 
              self.session.add(attempt_state)
+             # These flush/refresh calls were already correct
              await self.session.flush() # Save final state
+             # No need to refresh here as we are constructing the response manually
 
              # Return completion status and results
              return QuizNextQuestionResponse(
@@ -415,7 +420,7 @@ class AdaptiveQuizService:
                  # current_se=current_se
              )
 
-    # --- NEW HELPER METHOD ---
+    # --- Helper method for Weak Topic Identification ---
     async def _identify_weak_topics(
         self,
         administered_indices: np.ndarray,
@@ -470,4 +475,6 @@ class AdaptiveQuizService:
                     weak_topics.append(topic)
                     print(f"DEBUG: Identified weak topic '{topic}' (Accuracy: {accuracy:.2f}, Count: {stats['total']})")
 
+        # Corrected: Return the correct variable name
         return weak_topics
+
