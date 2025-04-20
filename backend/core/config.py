@@ -54,6 +54,17 @@ class Settings(BaseSettings):
 # Create a single instance of the settings to be imported elsewhere
 settings = Settings()
 
+
+# --- ADD THIS DEBUG PRINT ---
+print("-" * 20)
+print(f"DEBUG [config.py]: Loaded GOOGLE_API_KEY: "
+      f"'{settings.GOOGLE_API_KEY[:5]}...{settings.GOOGLE_API_KEY[-5:]}'"
+      if settings.GOOGLE_API_KEY else "DEBUG [config.py]: GOOGLE_API_KEY is None or Empty")
+print(f"DEBUG [config.py]: Loaded GROQ_API_KEY: "
+      f"'{settings.GROQ_API_KEY[:5]}...{settings.GROQ_API_KEY[-5:]}'"
+      if settings.GROQ_API_KEY else "DEBUG [config.py]: GROQ_API_KEY is None or Empty")
+print("-" * 20)
+# --- END DEBUG PRINT ---
 # Example of how to access settings in other files:
 # from backend.core.config import settings
 # db_url = settings.DATABASE_URL
