@@ -8,7 +8,8 @@
 // **** Import default export AND named getDocument ****
 // The default export is often the main library object in UMD-style modules converted to ES modules.
 // Path is relative TO THIS FILE (pdf_viewer.js is inside modules/)
-import pdfjsLib, { getDocument } from '../libs/pdfjs/build/pdf.mjs';
+
+import { getDocument } from '../libs/pdfjs/build/pdf.mjs';
 
 // --- Module State ---
 let pdfDoc = null; // Holds the loaded PDF document object
