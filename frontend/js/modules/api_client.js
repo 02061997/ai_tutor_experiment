@@ -1,5 +1,5 @@
 // ai_tutor_experiment/frontend/js/modules/api_client.js
-// Complete version including App1 LLM function.
+// Complete version including App1 logging and App2 Summary functions.
 
 'use strict';
 
@@ -9,7 +9,7 @@ const API_BASE_URL = '/api/v1'; // Relative URL assumes frontend is served by th
 /**
  * Reusable helper function to make fetch requests to the backend API.
  * Handles common headers, JSON stringification, response checking, and error handling.
- * @param {string} endpoint - The API endpoint path (e.g., '/quiz/start/session-id').
+ * @param {string} endpoint - The API endpoint path (e.g., '/consent/session').
  * @param {string} [method='GET'] - The HTTP method (GET, POST, PUT, DELETE).
  * @param {object|null} [body=null] - The request body for POST/PUT requests.
  * @param {object} [headers={}] - Optional additional headers.
@@ -17,45 +17,58 @@ const API_BASE_URL = '/api/v1'; // Relative URL assumes frontend is served by th
  * @throws {Error} - Throws an error if the request fails or response status is not ok (2xx).
  */
 async function fetchApi(endpoint, method = 'GET', body = null, headers = {}) {
+    // Construct the full URL using the base path
     const url = `${API_BASE_URL}${endpoint}`;
+
+    // Configure fetch options
     const options = {
         method: method,
         headers: {
-            'Accept': 'application/json',
-            ...headers,
+            'Accept': 'application/json', // Expect JSON responses
+            ...headers, // Allow overriding or adding custom headers
         },
     };
 
+    // If a body is provided, stringify it and set Content-Type
     if (body) {
         options.body = JSON.stringify(body);
+        // Ensure Content-Type is set for JSON bodies if not already specified
         if (!options.headers['Content-Type']) {
             options.headers['Content-Type'] = 'application/json';
         }
     }
 
-    // TODO: Add Authorization header if authentication is implemented
+    // TODO: Implement Authentication Header Injection
     // const token = sessionStorage.getItem('authToken');
     // if (token) {
     //     options.headers['Authorization'] = `Bearer ${token}`;
     // }
 
-    console.debug(`API Request: ${method} ${url}`, body ? options.body : '');
+    console.debug(`API Request: ${method} ${url}`, body ? JSON.stringify(body).substring(0, 100) + '...' : ''); // Log truncated body
 
     try {
+        // Perform the fetch request
         const response = await fetch(url, options);
+
+        // Check if the HTTP status code indicates success (200-299)
         if (!response.ok) {
             let errorBody;
             try { errorBody = await response.json(); } catch (e) { errorBody = { detail: response.statusText || `HTTP Error ${response.status}` }; }
             console.error(`API Error Response (${response.status}):`, errorBody);
             throw new Error(errorBody.detail || `HTTP error! Status: ${response.status}`);
         }
+
+        // Handle successful responses specifically for 204 No Content
         if (response.status === 204) {
             console.debug(`API Response (${response.status}): No Content`);
             return null;
         }
+
+        // For other successful responses (200, 201), parse the JSON body
         const data = await response.json();
         console.debug(`API Response (${response.status}):`, data);
         return data;
+
     } catch (error) {
         console.error(`Network or API error during fetch to ${url}:`, error);
         throw error;
@@ -177,20 +190,6 @@ export async function logApp1Interaction(sessionId, logData) {
 }
 
 /**
- * Ends a participant session.
- * Calls: POST /api/v1/consent/session/{sessionId}/end?status=...
- * @param {string} sessionId - The UUID of the session.
- * @param {string} status - The final status ('Completed', 'Abandoned', 'Error').
- * @returns {Promise<object>} - Updated session details matching ConsentRead schema.
- */
-export async function endSession(sessionId, status) {
-     if (!sessionId) throw new Error("Session ID is required to end session.");
-     if (!status) throw new Error("Final status is required.");
-     const endpoint = `/consent/session/${sessionId}/end?status=${encodeURIComponent(status)}`;
-     return fetchApi(endpoint, 'POST');
-}
-
-/**
  * Sends a prompt to the backend App1 LLM endpoint (Groq).
  * Calls: POST /api/v1/app1/llm/{sessionId}
  * @param {string} sessionId - The UUID of the session.
@@ -204,6 +203,34 @@ export async function getApp1LlmResponse(sessionId, promptText) {
     return fetchApi(`/app1/llm/${sessionId}`, 'POST', requestBody);
 }
 
+/**
+ * Requests an AI-generated summary for App2.
+ * Calls: POST /api/v1/app2/summary
+ * @param {string} textToSummarize - The text content to be summarized.
+ * @returns {Promise<object>} - Response object matching SummaryResponse schema (e.g., { summary_text: "..." }).
+ */
+export async function getApp2Summary(textToSummarize) {
+    if (!textToSummarize) throw new Error("Text to summarize is required.");
+    const requestBody = { text_to_summarize: textToSummarize }; // Matches SummaryRequest schema
+    // Ensure app2.router was included with prefix "/app2" in router.py
+    return fetchApi('/app2/summary', 'POST', requestBody);
+}
+
+
+/**
+ * Ends a participant session.
+ * Calls: POST /api/v1/consent/session/{sessionId}/end?status=...
+ * @param {string} sessionId - The UUID of the session.
+ * @param {string} status - The final status ('Completed', 'Abandoned', 'Error').
+ * @returns {Promise<object>} - Updated session details matching ConsentRead schema.
+ */
+export async function endSession(sessionId, status) {
+     if (!sessionId) throw new Error("Session ID is required to end session.");
+     if (!status) throw new Error("Final status is required.");
+     const endpoint = `/consent/session/${sessionId}/end?status=${encodeURIComponent(status)}`;
+     return fetchApi(endpoint, 'POST');
+}
+
 
 // --- Functions still needed / Placeholders ---
 
@@ -212,4 +239,7 @@ export async function getApp1LlmResponse(sessionId, promptText) {
 
 // TODO: Add function for App2 data download trigger (e.g., GET /api/v1/data-download/{session_uuid})
 // export async function downloadDataSummary(sessionId) { ... }
+
+// TODO: Add function for App2 recommendations request (e.g., GET /api/v1/app2/recommendations/{session_uuid}/{attempt_id})
+// export async function getRecommendations(sessionId, attemptId) { ... }
 
