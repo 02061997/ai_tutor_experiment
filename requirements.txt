@@ -21,7 +21,7 @@ python-jose[cryptography] # For JWT handling (OAuth2/JWT)
 passlib[bcrypt] # For password hashing (if storing researcher credentials)
 
 # --- LLM APIs (Add if/when implemented) ---
- oogle-generativeai # For Google AI Gemini API
+google-generativeai # For Google AI Gemini API
 groq # For Groq API (LLaMA)
 
 # --- Dashboard Aggregation (Optional but Recommended) ---
