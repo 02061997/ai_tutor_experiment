@@ -177,7 +177,8 @@ class AdaptiveQuizService:
              raise RuntimeError("Item bank failed to load or is empty.")
 
         # 1. Check if session exists
-        consent_check = await self.session.get(Consent, session_uuid)
+        # Use session.get for primary key lookup (more efficient)
+        consent_check = await self.session.get(Consent, session_uuid) # Corrected: Uses session.get
         if not consent_check:
              raise ValueError(f"Cannot start quiz: Session with UUID {session_uuid} not found.")
 
@@ -470,4 +471,3 @@ class AdaptiveQuizService:
                     print(f"DEBUG: Identified weak topic '{topic}' (Accuracy: {accuracy:.2f}, Count: {stats['total']})")
 
         return weak_topics
-
