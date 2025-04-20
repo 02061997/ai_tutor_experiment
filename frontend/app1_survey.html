@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Research Study - Welcome</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* Add some specific styles for the form */
+        body { background-color: #f0f2f5; } /* Slightly different background */
+        .form-container {
+            max-width: 700px;
+            margin: 30px auto;
+            padding: 30px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-container h1 {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .form-section {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .form-section h2 {
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            color: #333;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box; /* Include padding in width */
+        }
+        .radio-group label {
+            display: inline-block; /* Keep radio labels inline */
+            margin-right: 15px;
+            font-weight: normal;
+        }
+         .radio-group input[type="radio"] {
+            width: auto; /* Don't make radios full width */
+            margin-right: 5px;
+            vertical-align: middle;
+         }
+        .consent-section {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+         .consent-section label {
+            display: inline; /* Keep checkbox and label inline */
+            font-weight: normal;
+         }
+         .consent-section input[type="checkbox"] {
+             width: auto;
+             margin-right: 8px;
+             vertical-align: middle;
+         }
+        button[type="submit"] {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        button[type="submit"]:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+        button[type="submit"]:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+        #error-message {
+            color: red;
+            margin-top: 15px;
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>Welcome to the AI Research Study</h1>
+        <p>Thank you for your interest. Please provide the following information and consent to participate.</p>
+
+        <form id="consent-survey-form">
+
+            <label for="full_name">Full Name:</label>
+            <input type="text" id="full_name" name="full_name" required>
+
+            <div class="form-section">
+                <h2>About You (Demographics)</h2>
+                <label for="age">Age:</label>
+                <input type="number" id="age" name="age" min="18" required>
+
+                <label>Gender:</label>
+                <div class="radio-group">
+                    <input type="radio" id="gender_male" name="gender" value="Male" required>
+                    <label for="gender_male">Male</label>
+                    <input type="radio" id="gender_female" name="gender" value="Female">
+                    <label for="gender_female">Female</label>
+                     <input type="radio" id="gender_other" name="gender" value="Other">
+                    <label for="gender_other">Other</label>
+                    <input type="radio" id="gender_prefer_not" name="gender" value="Prefer not to say">
+                    <label for="gender_prefer_not">Prefer not to say</label>
+                </div>
+
+                <label for="education">Highest Education Level Completed:</label>
+                <select id="education" name="education" required>
+                    <option value="">-- Select --</option>
+                    <option value="High School">High School</option>
+                    <option value="Associate's">Associate's Degree</option>
+                    <option value="Bachelor's">Bachelor's Degree</option>
+                    <option value="Master's">Master's Degree</option>
+                    <option value="PhD">PhD</option>
+                     <option value="Professional Degree">Professional Degree (MD, JD, etc.)</option>
+                    <option value="Other">Other</option>
+                </select>
+
+                <label for="field_of_study">Primary Field of Study/Work:</label>
+                <input type="text" id="field_of_study" name="field_of_study" required>
+
+                <label for="primary_language">Primary Language:</label>
+                <input type="text" id="primary_language" name="primary_language" value="English" required> </div>
+
+            <div class="form-section">
+                <h2>Your Experience</h2>
+                <label for="llm_experience">How often do you use Large Language Models (LLMs like ChatGPT, Gemini, Claude, etc.)?</label>
+                <select id="llm_experience" name="llm_experience" required>
+                    <option value="">-- Select --</option>
+                    <option value="1">Never</option>
+                    <option value="2">Rarely (Less than once a month)</option>
+                    <option value="3">Occasionally (A few times a month)</option>
+                    <option value="4">Sometimes (Weekly)</option>
+                    <option value="5">Regularly (A few times a week)</option>
+                    <option value="6">Frequently (Daily)</option>
+                    <option value="7">Expert (Daily, advanced use)</option>
+                </select>
+
+                <label for="topic_familiarity">How familiar are you with the general topic area of the research papers in this study?</label>
+                <select id="topic_familiarity" name="topic_familiarity" required>
+                    <option value="">-- Select --</option>
+                    <option value="1">Not familiar at all</option>
+                    <option value="2">Slightly familiar</option>
+                    <option value="3">Somewhat familiar</option>
+                    <option value="4">Moderately familiar</option>
+                    <option value="5">Familiar</option>
+                    <option value="6">Very familiar</option>
+                    <option value="7">Expert</option>
+                </select>
+            </div>
+
+            <div class="consent-section">
+                <h2>Consent to Participate</h2>
+                <p>
+                    Please read the full consent form provided separately. By checking this box, you confirm that you are 18 years or older, have read the consent form, understand the study procedures, risks, benefits, and data handling practices, and voluntarily agree to participate. Your participation involves interacting with an AI system and research materials, and answering questions. Your anonymized interaction data and responses will be collected for research purposes.
+                </p>
+                <input type="checkbox" id="consent" name="consent" required>
+                <label for="consent">I have read the consent information and agree to participate.</label>
+            </div>
+
+            <div id="error-message"></div>
+
+            <button type="submit" id="submit-button">Submit and Start</button>
+
+        </form>
+    </div>
+
+    <script src="js/app1_survey.js" type="module"></script>
+</body>
+</html>

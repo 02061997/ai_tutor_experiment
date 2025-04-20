@@ -1,0 +1,34 @@
+# --- Core Web Framework & Server ---
+fastapi
+uvicorn[standard] # ASGI server with recommended extras
+
+# --- Database & ORM ---
+sqlmodel # ORM and data validation (includes pydantic, sqlalchemy)
+sqlalchemy # Core ORM (often installed with sqlmodel, explicit listing is good)
+aiosqlite # Async driver for SQLite
+
+# --- Configuration ---
+pydantic-settings # For loading settings from .env file
+python-dotenv # Used by pydantic-settings to read .env
+
+# --- Adaptive Quiz (CAT) ---
+catsim # Computerized Adaptive Testing simulation library
+numpy # Required by catsim for numerical operations
+greenlet
+
+# --- Security (Add when implemented) ---
+python-jose[cryptography] # For JWT handling (OAuth2/JWT)
+passlib[bcrypt] # For password hashing (if storing researcher credentials)
+
+# --- LLM APIs (Add if/when implemented) ---
+ oogle-generativeai # For Google AI Gemini API
+groq # For Groq API (LLaMA)
+
+# --- Dashboard Aggregation (Optional but Recommended) ---
+pandas # For efficient data aggregation in dashboard service
+
+# --- Optional but helpful for development ---
+# httpx # For making async HTTP requests (e.g., if calling external APIs directly)
+# pytest # For running tests
+# pytest-asyncio # For testing async code with pytest
+# requests # For synchronous HTTP requests (less common in async FastAPI)

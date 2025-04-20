@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Research Study - Final Test</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { background-color: #f0f2f5; }
+        .form-container {
+            max-width: 800px; /* Wider for test questions */
+            margin: 30px auto;
+            padding: 30px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-container h1 {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .test-question {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .test-question p { /* Question text */
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .test-options label {
+            display: block; /* Each option on new line */
+            margin-bottom: 8px;
+            font-weight: normal;
+            cursor: pointer;
+        }
+         .test-options input[type="radio"],
+         .test-options input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+            vertical-align: middle;
+            cursor: pointer;
+         }
+        button[type="submit"] {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #28a745; /* Green for final submission */
+            color: white;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.2s ease;
+        }
+        button[type="submit"]:hover:not(:disabled) {
+            background-color: #218838;
+        }
+         button[type="submit"]:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+        #error-message {
+            color: red;
+            margin-top: 15px;
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>Final Test</h1>
+        <p>Please answer the following questions based on the research paper you studied.</p>
+
+        <form id="final-test-form">
+            <input type="hidden" id="session-uuid-holder" name="session_uuid">
+
+            <div class="test-question" id="q1">
+                <p>1. What was the primary research question addressed in the paper? (Placeholder)</p>
+                <div class="test-options">
+                    <label><input type="radio" name="q1_answer" value="A" required> A) Option A placeholder</label>
+                    <label><input type="radio" name="q1_answer" value="B"> B) Option B placeholder</label>
+                    <label><input type="radio" name="q1_answer" value="C"> C) Option C placeholder</label>
+                    <label><input type="radio" name="q1_answer" value="D"> D) Option D placeholder</label>
+                </div>
+            </div>
+
+            <div class="test-question" id="q2">
+                <p>2. Which methodology was primarily used? (Placeholder)</p>
+                 <div class="test-options">
+                    <label><input type="radio" name="q2_answer" value="A" required> A) Qualitative Analysis</label>
+                    <label><input type="radio" name="q2_answer" value="B"> B) Quantitative Experiment</label>
+                    <label><input type="radio" name="q2_answer" value="C"> C) Literature Review</label>
+                    <label><input type="radio" name="q2_answer" value="D"> D) Case Study</label>
+                </div>
+            </div>
+
+             <div class="test-question" id="q3">
+                <p>3. What were the main findings or conclusions? (Placeholder - Open Text?)</p>
+                <div class="test-options">
+                   <textarea name="q3_answer" rows="4" style="width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 10px; box-sizing: border-box;" required></textarea>
+                </div>
+            </div>
+
+            <div class="test-question" id="q4">
+                <p>4. Another multiple choice question? (Placeholder)</p>
+                 <div class="test-options">
+                    <label><input type="radio" name="q4_answer" value="A" required> A) Yes</label>
+                    <label><input type="radio" name="q4_answer" value="B"> B) No</label>
+                    <label><input type="radio" name="q4_answer" value="C"> C) Maybe</label>
+                 </div>
+            </div>
+
+
+            <div id="error-message"></div>
+
+            <button type="submit" id="submit-test-button">Submit Final Test</button>
+
+        </form>
+    </div>
+
+    <script src="js/final_test.js" type="module"></script>
+</body>
+</html>

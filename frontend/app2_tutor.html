@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Research Tutor - App 2</title>
+    <link rel="stylesheet" href="css/style.css">
+    </head>
+<body>
+    <div class="app2-main-container">
+        <h1>Research Paper Study (App 2)</h1>
+
+        <div id="learning-interface-view">
+            <div class="learning-interface">
+                <section id="paper-area">
+                    <h2>Research Paper (<span id="assigned-paper-name">Loading...</span>)</h2>
+                    <div id="pdf-controls">
+                        <button id="prev-page" title="Previous Page">◄ Prev</button>
+                        <span>Page: <span id="page-num">--</span> / <span id="page-count">--</span></span>
+                        <button id="next-page" title="Next Page">Next ►</button>
+                        <span style="margin-left: 20px;"></span> <button id="zoom-out-button" title="Zoom Out">-</button>
+                        <span style="margin: 0 5px;">Zoom</span>
+                        <button id="zoom-in-button" title="Zoom In">+</button>
+                    </div>
+                    <div id="pdf-viewer-area">
+                         <canvas id="pdf-canvas"></canvas>
+                         <div id="text-layer" class="textLayer"></div>
+                         </div>
+                </section>
+
+                <section id="summary-area">
+                    <h2>AI Generated Summary</h2>
+                    <div id="summary-content">
+                        <p><i>Loading summary...</i></p>
+                    </div>
+                </section>
+            </div>
+
+            <div style="text-align: center; padding: 20px 0;">
+                <button id="proceed-to-quiz-button">Start Quiz</button>
+            </div>
+        </div>
+
+        <div id="quiz-container" style="display: none;">
+             <div id="quiz-area">
+                <h2>Adaptive Quiz</h2>
+                <div id="quiz-question-container">
+                    <p>Loading quiz...</p>
+                </div>
+                <div id="quiz-feedback-container"></div>
+                <div id="quiz-controls">
+                     <button id="submit-answer-button" disabled>Submit Answer</button>
+                     <button id="show-recommendations-button" style="display: none;">Show Recommendations</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="recommendations-view" style="display: none;">
+             <h2>Recommendations</h2>
+             <p>Based on your quiz performance, you might want to review the following topics:</p>
+             <ul id="recommendations-list">
+                 <li><i>Recommendations will appear here after the quiz.</i></li>
+             </ul>
+             <div id="recommendations-content">
+             </div>
+             <div id="recommendations-nav">
+                 <div>
+                    <button id="review-paper-button">Review Paper/Summary</button>
+                    <button id="review-quiz-button">Review Quiz</button>
+                 </div>
+                 <div>
+                    <button id="take-final-test-button">Take Final Test</button>
+                 </div>
+             </div>
+        </div>
+
+    </div> <script src="js/libs/pdfjs/build/pdf.mjs" type="module"></script>
+    <script src="js/libs/heatmap.min.js"></script>
+
+    <script src="js/app2_tutor.js" type="module"></script>
+
+</body>
+</html>

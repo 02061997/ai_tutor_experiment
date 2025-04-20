@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Research Study - Exit Survey</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { background-color: #f0f2f5; }
+        .form-container {
+            max-width: 700px;
+            margin: 30px auto;
+            padding: 30px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-container h1 {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .form-section {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .form-section:last-of-type {
+            border-bottom: none;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box; /* Include padding in width */
+            font-family: inherit; /* Use body font */
+            font-size: 1em;
+        }
+        textarea {
+            resize: vertical; /* Allow vertical resizing */
+            min-height: 100px;
+        }
+        button[type="submit"] {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #198754; /* Different green */
+            color: white;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.2s ease;
+        }
+        button[type="submit"]:hover:not(:disabled) {
+            background-color: #157347;
+        }
+         button[type="submit"]:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+        #error-message {
+            color: red;
+            margin-top: 15px;
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>Exit Survey</h1>
+        <p>Thank you for completing the main tasks. Please answer these final questions about your overall experience.</p>
+
+        <form id="exit-survey-form">
+            <input type="hidden" id="session-uuid-holder" name="session_uuid">
+
+            <div class="form-section">
+                <label for="overall_difficulty">After using the tool, how difficult did you find it to understand the research paper?</label>
+                <select id="overall_difficulty" name="overall_difficulty" required>
+                    <option value="">-- Select Difficulty --</option>
+                    <option value="1">1 - Very Difficult</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4 - Neutral</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7 - Very Easy</option>
+                </select>
+            </div>
+
+            <div class="form-section">
+                <label for="approach_helpfulness">How helpful was the approach you used (reading the paper with the provided AI tool) for understanding the material?</label>
+                <select id="approach_helpfulness" name="approach_helpfulness" required>
+                    <option value="">-- Select Helpfulness --</option>
+                    <option value="1">1 - Not helpful at all</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4 - Moderately helpful</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7 - Extremely helpful</option>
+                </select>
+            </div>
+
+            <div class="form-section">
+                <label for="final_comments">Do you have any final comments, feedback, or suggestions about the tool or your experience?</label>
+                <textarea id="final_comments" name="final_comments" rows="5"></textarea>
+            </div>
+
+
+            <div id="error-message"></div>
+
+            <button type="submit" id="submit-exit-button">Submit Survey and Finish</button>
+
+        </form>
+    </div>
+
+    <script src="js/exit_survey.js" type="module"></script>
+</body>
+</html>

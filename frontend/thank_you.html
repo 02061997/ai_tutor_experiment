@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Research Study - Thank You</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { background-color: #f0f2f5; }
+        .content-container { /* Changed class name from form-container */
+            max-width: 700px;
+            margin: 50px auto; /* More margin top */
+            padding: 40px;   /* More padding */
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center; /* Center text content */
+        }
+        .content-container h1 {
+            margin-bottom: 20px;
+            color: #198754; /* Green color */
+        }
+        .content-container p {
+            margin-bottom: 15px;
+            line-height: 1.7;
+        }
+        #app2-data-download {
+             margin-top: 30px;
+             padding-top: 20px;
+             border-top: 1px solid #eee;
+        }
+         #app2-data-download button {
+             padding: 10px 20px;
+             font-size: 1em;
+             cursor: pointer;
+         }
+    </style>
+</head>
+<body>
+    <div class="content-container">
+        <h1>Thank You!</h1>
+
+        <p>Your participation in this research study is complete and greatly appreciated.</p>
+
+        <p>
+            If you have any questions about this study or your participation,
+            please contact the research team at:
+            <br>
+            <em>[Insert Researcher Contact Email/Info Here]</em>
+        </p>
+        <p>
+             <em>[Optional: Add brief debriefing information about the study's purpose here if appropriate]</em>
+        </p>
+
+        <div id="app2-data-download" style="display: none;">
+            <p>As you participated using the interactive tutoring application (App2), you may download a summary of your anonymized interaction data.</p>
+            <button id="download-data-button">Download My Data Summary</button>
+            <p id="download-status" style="font-size: 0.9em; margin-top: 10px;"></p>
+        </div>
+
+        <p style="margin-top: 30px;">You may now close this browser window.</p>
+
+    </div>
+
+    <script src="js/thank_you.js" type="module"></script>
+</body>
+</html>
