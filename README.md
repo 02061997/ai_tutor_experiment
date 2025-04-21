@@ -9,4 +9,5 @@ To Delete Database
 rm -f ./data/session.db
 
 To Delete Paper Index
-rm -rf ./data/vector_stores/Paper1_faiss_index
+1. rm -rf ./data/vector_stores/Paper1_faiss_index
+2. rm -rf ./data/vector_stores/Paper2_faiss_index
