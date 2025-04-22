@@ -4,80 +4,144 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Research Tutor - App 2</title>
-    <link rel="stylesheet" href="css/style.css">
-    </head>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        /* Basic styling for quiz elements (can be moved to style.css) */
+        #quiz-section {
+            border: 1px solid #ccc;
+            padding: 20px;
+            margin-top: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            max-width: 800px; /* Example max width */
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .quiz-options {
+            list-style: none;
+            padding: 0;
+            margin: 15px 0;
+        }
+        .quiz-options li {
+            margin-bottom: 12px;
+            padding: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid #eee;
+        }
+        .quiz-options li:hover {
+            background-color: #f0f0f0;
+        }
+        .quiz-options input[type="radio"] {
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        .quiz-options label {
+            margin-left: 5px;
+            cursor: pointer;
+            vertical-align: middle;
+        }
+        .quiz-feedback {
+            margin-top: 15px;
+            padding: 12px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .quiz-feedback p { margin: 0; }
+        .quiz-feedback.correct { border-color: #4CAF50; background-color: #e8f5e9; color: #2e7d32; }
+        .quiz-feedback.incorrect { border-color: #f44336; background-color: #ffebee; color: #c62828; }
+        .quiz-feedback .explanation { margin-top: 8px; font-style: italic; color: #555; font-weight: normal;}
+        .loading-indicator, .quiz-completion-message, .error-message-container { padding: 15px; text-align: center; font-style: italic; }
+        .error-message-container { color: red; font-weight: bold; }
+        .submit-quiz-answer-btn { margin-top: 15px; padding: 8px 15px; }
+        #finish-task-btn { margin-top: 20px; padding: 10px 20px; font-size: 1.1em; }
+        #pdf-viewer-area { border: 1px solid #ccc; margin-top: 10px; position: relative; /* Needed for text layer */ } /* Added border */
+        #pdf-controls button { margin: 0 5px; }
+        .learning-interface { display: flex; gap: 20px; margin-bottom: 20px; }
+        #paper-area { flex: 2; /* Takes more space */ }
+        #summary-area { flex: 1; /* Takes less space */ border-left: 1px solid #eee; padding-left: 20px; }
+
+        /* Ensure text layer is positioned correctly */
+        .textLayer { position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: hidden; opacity: 0.2; line-height: 1.0; }
+        .textLayer > span { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
+        ::selection { background: rgba(0,0,255,0.3); } /* Highlight selection */
+
+    </style>
+</head>
 <body>
-    <div class="app2-main-container">
-        <h1>Research Paper Study (App 2)</h1>
+<div class="app2-main-container container">
+    <h1>Research Paper Study (App 2)</h1>
 
-        <div id="learning-interface-view">
-            <div class="learning-interface">
-                <section id="paper-area">
-                    <h2>Research Paper (<span id="assigned-paper-name">Loading...</span>)</h2>
-                    <div id="pdf-controls">
-                        <button id="prev-page" title="Previous Page">◄ Prev</button>
-                        <span>Page: <span id="page-num">--</span> / <span id="page-count">--</span></span>
-                        <button id="next-page" title="Next Page">Next ►</button>
-                        <span style="margin-left: 20px;"></span> <button id="zoom-out-button" title="Zoom Out">-</button>
-                        <span style="margin: 0 5px;">Zoom</span>
-                        <button id="zoom-in-button" title="Zoom In">+</button>
-                    </div>
-                    <div id="pdf-viewer-area">
-                         <canvas id="pdf-canvas"></canvas>
-                         <div id="text-layer" class="textLayer"></div>
-                         </div>
-                </section>
-
-                <section id="summary-area">
-                    <h2>AI Generated Summary</h2>
-                    <div id="summary-content">
-                        <p><i>Loading summary...</i></p>
-                    </div>
-                </section>
-            </div>
-
-            <div style="text-align: center; padding: 20px 0;">
-                <button id="proceed-to-quiz-button">Start Quiz</button>
-            </div>
-        </div>
-
-        <div id="quiz-container" style="display: none;">
-             <div id="quiz-area">
-                <h2>Adaptive Quiz</h2>
-                <div id="quiz-question-container">
-                    <p>Loading quiz...</p>
+    <div id="pdf-summary-container">
+        <div class="learning-interface">
+            <section id="paper-area">
+                <h2>Research Paper: <span id="assigned-paper-name">Loading...</span></h2>
+                <div id="pdf-controls">
+                    <button id="prev-page" title="Previous Page">◄ Prev</button>
+                    <span>Page: <span id="page-num">--</span> / <span id="page-count">--</span></span>
+                    <button id="next-page" title="Next Page">Next ►</button>
+                    <span style="margin-left: 20px;"></span>
+                    <button id="zoom-out-button" title="Zoom Out">-</button>
+                    <span style="margin: 0 5px;">Zoom</span>
+                    <button id="zoom-in-button" title="Zoom In">+</button>
                 </div>
-                <div id="quiz-feedback-container"></div>
-                <div id="quiz-controls">
-                     <button id="submit-answer-button" disabled>Submit Answer</button>
-                     <button id="show-recommendations-button" style="display: none;">Show Recommendations</button>
+                <div id="pdf-viewer-area">
+                    <canvas id="pdf-canvas"></canvas>
+                    <div id="text-layer" class="textLayer"></div>
                 </div>
+            </section>
+
+            <section id="summary-area">
+                <h2>AI Generated Summary</h2>
+                <div id="summary-content">
+                    <p><i>Loading summary...</i></p>
+                </div>
+            </section>
+        </div>
+
+        <div style="text-align: center; padding: 20px 0;">
+            <button id="start-quiz-btn" disabled>Start Quiz</button>
+        </div>
+    </div> <div id="quiz-container" style="display: none;">
+
+    <div id="quiz-section">
+        <h2>Adaptive Quiz</h2>
+
+        <div class="loading-indicator" style="display: none;">Loading Quiz Question...</div>
+
+        <div class="error-message-container" style="display: none;"></div>
+
+        <div class="quiz-content" style="display: none;">
+            <div class="question-container">
+                <p class="quiz-question-text"></p>
             </div>
+            <ul class="quiz-options">
+            </ul>
+            <button class="submit-quiz-answer-btn" disabled>Submit Answer</button>
         </div>
 
-        <div id="recommendations-view" style="display: none;">
-             <h2>Recommendations</h2>
-             <p>Based on your quiz performance, you might want to review the following topics:</p>
-             <ul id="recommendations-list">
-                 <li><i>Recommendations will appear here after the quiz.</i></li>
-             </ul>
-             <div id="recommendations-content">
-             </div>
-             <div id="recommendations-nav">
-                 <div>
-                    <button id="review-paper-button">Review Paper/Summary</button>
-                    <button id="review-quiz-button">Review Quiz</button>
-                 </div>
-                 <div>
-                    <button id="take-final-test-button">Take Final Test</button>
-                 </div>
-             </div>
-        </div>
+        <div class="quiz-feedback" style="display: none;"></div>
 
-    </div> <script src="js/libs/pdfjs/build/pdf.mjs" type="module"></script>
-    <script src="js/libs/heatmap.min.js"></script>
+        <div class="quiz-completion-message" style="display: none;"></div>
 
-    <script src="js/app2_tutor.js" type="module"></script>
+    </div>
+    <div style="text-align: center; padding: 20px 0;">
+        <button id="finish-task-btn" style="display: none;">Proceed to Final Test</button>
+    </div>
+
+</div><div id="recommendations-view" style="display: none;">
+    <h2>Recommendations</h2>
+    <p>Based on your quiz performance, you might want to review the following topics:</p>
+    <ul id="recommendations-list">
+        <li><i>Recommendations feature not fully implemented.</i></li>
+    </ul>
+</div>
+
+</div> <script src="/js/libs/pdfjs/build/pdf.mjs" type="module"></script>
+<script src="/js/libs/heatmap.min.js"></script>
+
+<script src="/js/app2_tutor.js" type="module"></script>
 
 </body>
 </html>

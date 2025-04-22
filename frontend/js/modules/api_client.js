@@ -1,5 +1,5 @@
 // ai_tutor_experiment/frontend/js/modules/api_client.js
-// Complete version including App1 logging and App2 Summary functions.
+// Updated for Phase 5: RAG/LLM Quiz Refactor
 
 'use strict';
 
@@ -17,61 +17,74 @@ const API_BASE_URL = '/api/v1'; // Relative URL assumes frontend is served by th
  * @throws {Error} - Throws an error if the request fails or response status is not ok (2xx).
  */
 async function fetchApi(endpoint, method = 'GET', body = null, headers = {}) {
-    // Construct the full URL using the base path
     const url = `${API_BASE_URL}${endpoint}`;
-
-    // Configure fetch options
     const options = {
         method: method,
         headers: {
-            'Accept': 'application/json', // Expect JSON responses
-            ...headers, // Allow overriding or adding custom headers
+            'Accept': 'application/json',
+            ...headers,
         },
     };
 
-    // If a body is provided, stringify it and set Content-Type
     if (body) {
         options.body = JSON.stringify(body);
-        // Ensure Content-Type is set for JSON bodies if not already specified
         if (!options.headers['Content-Type']) {
             options.headers['Content-Type'] = 'application/json';
         }
     }
 
-    // TODO: Implement Authentication Header Injection
+    // TODO: Add Authentication Header Injection if researcher login is implemented
     // const token = sessionStorage.getItem('authToken');
     // if (token) {
     //     options.headers['Authorization'] = `Bearer ${token}`;
     // }
 
-    console.debug(`API Request: ${method} ${url}`, body ? JSON.stringify(body).substring(0, 100) + '...' : ''); // Log truncated body
+    console.debug(`API Request: ${method} ${url}`, body ? JSON.stringify(body).substring(0, 100) + '...' : '');
 
     try {
-        // Perform the fetch request
         const response = await fetch(url, options);
 
-        // Check if the HTTP status code indicates success (200-299)
         if (!response.ok) {
             let errorBody;
-            try { errorBody = await response.json(); } catch (e) { errorBody = { detail: response.statusText || `HTTP Error ${response.status}` }; }
-            console.error(`API Error Response (${response.status}):`, errorBody);
-            throw new Error(errorBody.detail || `HTTP error! Status: ${response.status}`);
+            try {
+                errorBody = await response.json();
+                // Attempt to extract detail, fallback to statusText or generic message
+                let detailMessage = "Unknown error";
+                if (errorBody && errorBody.detail) {
+                    // Handle cases where detail might be an object (like validation errors)
+                    if (typeof errorBody.detail === 'string') {
+                        detailMessage = errorBody.detail;
+                    } else {
+                        // Attempt to stringify or provide a summary
+                        try { detailMessage = JSON.stringify(errorBody.detail); } catch { detailMessage = "Complex error object received"; }
+                    }
+                } else {
+                    detailMessage = response.statusText || `HTTP Error ${response.status}`;
+                }
+                console.error(`API Error Response (${response.status}):`, errorBody);
+                throw new Error(detailMessage);
+
+            } catch (e) {
+                // Handle cases where response is not JSON or json parsing fails
+                console.error(`API Error Response (${response.status}): Cannot parse body. Status: ${response.statusText}`);
+                throw new Error(response.statusText || `HTTP error! Status: ${response.status}`);
+            }
         }
 
-        // Handle successful responses specifically for 204 No Content
         if (response.status === 204) {
             console.debug(`API Response (${response.status}): No Content`);
             return null;
         }
 
-        // For other successful responses (200, 201), parse the JSON body
         const data = await response.json();
         console.debug(`API Response (${response.status}):`, data);
         return data;
 
     } catch (error) {
-        console.error(`Network or API error during fetch to ${url}:`, error);
-        throw error;
+        // Catch fetch errors (network issues) or errors thrown above
+        console.error(`Network or API error during fetch to ${url}:`, error.message || error);
+        // Re-throw the error message, not the entire error object sometimes
+        throw new Error(error.message || 'Network or API error occurred.');
     }
 }
 
@@ -84,8 +97,9 @@ async function fetchApi(endpoint, method = 'GET', body = null, headers = {}) {
  * @returns {Promise<object>} - Matching ConsentRead schema.
  */
 export async function createConsentSession(consentData) {
-     if (!consentData) throw new Error("Consent data is required.");
-     return fetchApi('/consent/session', 'POST', consentData);
+    if (!consentData) throw new Error("Consent data is required.");
+    // The consent endpoint should trigger RAG processing on the backend now
+    return fetchApi('/consent/session', 'POST', consentData);
 }
 
 /**
@@ -99,49 +113,62 @@ export async function getSessionDetails(sessionId) {
     return fetchApi(`/consent/session/${sessionId}`);
 }
 
+
+
+// +++ NEW LLM QUIZ FUNCTIONS +++
 /**
- * Starts a new quiz attempt for App2.
- * Calls: POST /api/v1/quiz/start/{sessionId}
+ * Gets the next LLM-generated quiz question for the session.
+ * Calls: POST /api/v1/quiz/next/{sessionId}
  * @param {string} sessionId - The UUID of the session.
- * @param {string|null} [quizId=null] - Optional quiz identifier.
- * @returns {Promise<object>} - Response matching QuizStartResponse schema.
+ * @returns {Promise<object>} - Response matching GeneratedMCQForParticipant schema.
  */
-export async function startQuiz(sessionId, quizId = null) {
-    if (!sessionId) throw new Error("Session ID is required to start quiz.");
-    let endpoint = `/quiz/start/${sessionId}`;
-    if (quizId) {
-        endpoint += `?quiz_id=${encodeURIComponent(quizId)}`;
-    }
+export async function getNextLLMQuestion(sessionId) {
+    if (!sessionId) throw new Error("Session ID is required to get the next LLM question.");
+    const endpoint = `/quiz/next/${sessionId}`;
+    // POST request might be suitable even if no body, or use GET if backend changes
     return fetchApi(endpoint, 'POST');
 }
 
 /**
- * Submits an answer for the App2 adaptive quiz.
- * Calls: POST /api/v1/quiz/answer/{attemptId}
- * @param {string} attemptId - The UUID of the quiz attempt.
- * @param {object} answerData - Data matching QuizAnswerInput schema.
- * @returns {Promise<object>} - Response matching QuizNextQuestionResponse schema.
+ * Submits an answer for an LLM-generated quiz question.
+ * Calls: POST /api/v1/quiz/answer_llm/{sessionId}
+ * @param {string} sessionId - The UUID of the session.
+ * @param {string} mcqId - The UUID of the generated MCQ being answered.
+ * @param {string} chosenLetter - The letter ('A', 'B', 'C', 'D') chosen by the user.
+ * @returns {Promise<object>} - Response matching GeneratedMCQAnswerFeedback schema.
  */
-export async function submitQuizAnswer(attemptId, answerData) {
-    if (!attemptId) throw new Error("Attempt ID is required to submit answer.");
-    if (!answerData) throw new Error("Answer data is required.");
-    return fetchApi(`/quiz/answer/${attemptId}`, 'POST', answerData);
+export async function submitLLMAnswer(sessionId, mcqId, chosenLetter) {
+    if (!sessionId) throw new Error("Session ID is required to submit LLM answer.");
+    if (!mcqId) throw new Error("MCQ ID is required.");
+    if (!chosenLetter || !['A', 'B', 'C', 'D'].includes(chosenLetter.toUpperCase())) {
+        throw new Error("Chosen answer letter (A, B, C, or D) is required.");
+    }
+    const requestBody = {
+        mcq_id: mcqId,
+        chosen_answer_letter: chosenLetter.toUpperCase()
+        // timestamp_frontend could be added here if needed by backend schema
+    };
+    const endpoint = `/quiz/answer_llm/${sessionId}`;
+    return fetchApi(endpoint, 'POST', requestBody);
 }
+// +++ END NEW LLM QUIZ FUNCTIONS +++
+
 
 /**
  * Logs a batch of App2 interaction events (clicks, scrolls, PDF events).
  * Calls: POST /api/v1/interaction/log/{sessionId}
  * @param {string} sessionId - The UUID of the session.
  * @param {Array<object>} logEntries - Array matching InteractionLogCreate schema.
- * @returns {Promise<object>} - Confirmation message from the backend.
+ * @returns {Promise<object>} - Confirmation message or created logs.
  */
 export async function logInteractions(sessionId, logEntries) {
     if (!sessionId) throw new Error("Session ID is required for logging interactions.");
     if (!logEntries || logEntries.length === 0) {
-        console.warn("No App2 interaction log entries to send.");
-        return Promise.resolve({ message: "No logs sent." });
+        // console.warn("No App2 interaction log entries to send.");
+        return Promise.resolve({ message: "No logs sent." }); // Don't throw error, just resolve
     }
     const batchData = { logs: logEntries };
+    // Interaction endpoint might return 201 Created with the logs or just 200/204
     return fetchApi(`/interaction/log/${sessionId}`, 'POST', batchData);
 }
 
@@ -209,11 +236,11 @@ export async function getApp1LlmResponse(sessionId, promptText) {
  * @param {string} textToSummarize - The text content to be summarized.
  * @returns {Promise<object>} - Response object matching SummaryResponse schema (e.g., { summary_text: "..." }).
  */
-export async function getApp2Summary(textToSummarize) {
-    if (!textToSummarize) throw new Error("Text to summarize is required.");
-    const requestBody = { text_to_summarize: textToSummarize }; // Matches SummaryRequest schema
-    // Ensure app2.router was included with prefix "/app2" in router.py
-    return fetchApi('/app2/summary', 'POST', requestBody);
+export async function getApp2Summary(participantId) {
+    if (!participantId) throw new Error("Participant ID is required to get summary.");
+    // Ensure template literal uses backticks ` `
+    const endpoint = `/app2/summary/${participantId}`; // Correct path
+    return fetchApi(endpoint, 'GET'); // Correct method
 }
 
 
@@ -225,21 +252,8 @@ export async function getApp2Summary(textToSummarize) {
  * @returns {Promise<object>} - Updated session details matching ConsentRead schema.
  */
 export async function endSession(sessionId, status) {
-     if (!sessionId) throw new Error("Session ID is required to end session.");
-     if (!status) throw new Error("Final status is required.");
-     const endpoint = `/consent/session/${sessionId}/end?status=${encodeURIComponent(status)}`;
-     return fetchApi(endpoint, 'POST');
+    if (!sessionId) throw new Error("Session ID is required to end session.");
+    if (!status) throw new Error("Final status is required.");
+    const endpoint = `/consent/session/${sessionId}/end?status=${encodeURIComponent(status)}`;
+    return fetchApi(endpoint, 'POST');
 }
-
-
-// --- Functions still needed / Placeholders ---
-
-// TODO: Add function to handle researcher login (POST /api/v1/auth/token)
-// export async function loginResearcher(username, password) { ... }
-
-// TODO: Add function for App2 data download trigger (e.g., GET /api/v1/data-download/{session_uuid})
-// export async function downloadDataSummary(sessionId) { ... }
-
-// TODO: Add function for App2 recommendations request (e.g., GET /api/v1/app2/recommendations/{session_uuid}/{attempt_id})
-// export async function getRecommendations(sessionId, attemptId) { ... }
-

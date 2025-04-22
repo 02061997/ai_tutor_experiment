@@ -2,10 +2,11 @@
 # Corrected Version (Added /static mount BEFORE / mount)
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status # Added HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles # Ensure this is imported
 import os # Ensure this is imported
+import traceback # Added for explicit traceback printing in custom handler
 
 # Import configuration settings
 from backend.core.config import settings
@@ -17,6 +18,7 @@ from backend.api.v1.router import api_router_v1
 from backend.db.database import init_db, close_db, engine
 # Ensure models are imported before init_db() if create_db_and_tables is called inside it
 from backend.db import models
+
 
 
 @asynccontextmanager
@@ -49,6 +51,23 @@ app = FastAPI(
     redoc_url=f"{settings.API_V1_STR}/redoc",
     lifespan=lifespan
 )
+
+# --- Add a custom exception handler to log tracebacks ---
+# This is a basic example; you might want more sophisticated logging
+@app.exception_handler(Exception) # Catches all Exceptions, including AttributeError
+async def generic_exception_handler(request, exc):
+    print(f"--- UNHANDLED EXCEPTION CAUGHT IN main.py ({type(exc).__name__}) ---")
+    print(f"Request: {request.method} {request.url}")
+    traceback.print_exc() # Print the full traceback to the console
+    print("-----------------------------------------")
+    # Return a standard 500 response
+    # Ensure you import HTTPException and status from fastapi
+    return HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=f"An internal server error occurred: {exc}" # You might want a more generic message in production
+    )
+# --- End Custom Exception Handler ---
+
 
 # Configure CORS (Cross-Origin Resource Sharing)
 # (Keep existing CORS configuration as before)

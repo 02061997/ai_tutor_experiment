@@ -1,7 +1,10 @@
 # backend/db/database.py
+# Corrected to use SQLModel's AsyncSession
 
 from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+# Import SQLModel's AsyncSession instead of SQLAlchemy's directly for sessionmaker
+from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel # Import SQLModel base class
 
@@ -11,31 +14,26 @@ from backend.core.config import settings # Import settings to get DATABASE_URL
 DATABASE_URL = settings.DATABASE_URL
 
 # Create the asynchronous engine
-# connect_args={"check_same_thread": False} is specific to SQLite
-# to allow connections from different threads (FastAPI uses threads).
-# For async (`aiosqlite`), this might not be strictly necessary but doesn't hurt.
-# echo=True logs SQL statements, useful for debugging during development.
 engine = create_async_engine(
     DATABASE_URL,
     echo=True, # Log SQL queries - set to False in production
     future=True, # Use the future SQLAlchemy 2.0 style
-    connect_args={"check_same_thread": False} # Needed for SQLite sync, potentially useful for async too
+    connect_args={"check_same_thread": False} # Needed for SQLite sync backend with SQLAlchemy
 )
 
-# Create an asynchronous sessionmaker
-# expire_on_commit=False prevents attributes from being expired
-# after commit, which can be useful in async contexts.
+# Create an asynchronous sessionmaker using SQLModel's AsyncSession
 AsyncSessionFactory = sessionmaker(
     bind=engine,
-    class_=AsyncSession,
+    class_=AsyncSession, # <-- Use SQLModel's AsyncSession here
     expire_on_commit=False,
-    autoflush=False, # Disable autoflush for async
+    autoflush=False,
 )
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """
     FastAPI dependency that provides an asynchronous database session.
     Ensures the session is closed after the request is finished.
+    (This function is likely defined in deps.py now, kept here for reference/completeness)
     """
     async with AsyncSessionFactory() as session:
         try:
@@ -52,32 +50,20 @@ async def create_db_and_tables():
     Creates all database tables defined by SQLModel metadata.
     Should be called during application startup (e.g., in a lifespan event).
     """
-    # Note: Import all models that inherit from SQLModel HERE before calling create_all!
-    # This is crucial so that SQLModel's metadata knows about the tables.
-    # We will define these models in `backend/db/models.py` later.
-    # Example placeholder:
-    # from backend.db import models # Uncomment when models.py exists
+    # Ensure models are imported so metadata is populated
+    from backend.db import models # Make sure models are imported
 
     async with engine.begin() as conn:
-        # In SQLAlchemy 2.0, create_all should be called on the metadata
-        # Drop all tables (useful for development, REMOVE FOR PRODUCTION)
-        # await conn.run_sync(SQLModel.metadata.drop_all)
-        # Create all tables
+        # await conn.run_sync(SQLModel.metadata.drop_all) # Uncomment for development reset
         await conn.run_sync(SQLModel.metadata.create_all)
     print("Database tables created (if they didn't exist).")
 
 # Optional: Function to initialize DB connection pool during startup
 async def init_db():
     """
-    Initializes the database connection pool.
-    May be called during application startup lifespan event.
+    Initializes the database connection pool and creates tables.
     """
-    # The engine is already created, this function might just ensure connectivity
-    # or perform initial checks if needed. For SQLite, it's often simple.
     print(f"Initializing database connection for: {DATABASE_URL}")
-    # You could potentially test the connection here if desired
-    # async with engine.connect() as connection:
-    #     pass
     await create_db_and_tables() # Create tables on startup
 
 
@@ -85,7 +71,6 @@ async def init_db():
 async def close_db():
     """
     Closes the database connection pool.
-    Called during application shutdown lifespan event.
     """
     print("Closing database connection pool.")
     await engine.dispose()

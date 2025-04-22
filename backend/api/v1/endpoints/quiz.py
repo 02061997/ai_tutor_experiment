@@ -1,145 +1,111 @@
 # backend/api/v1/endpoints/quiz.py
-# Corrected Version (Path prefixes removed)
 
 import uuid
+import logging
+import traceback # Keep for logging if needed
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
-from sqlmodel.ext.asyncio.session import AsyncSession
-from pydantic import BaseModel # Import BaseModel for new response schema
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 
-# Dependency for DB session
-from backend.db.database import get_session
-
-# Service and Schemas
-from backend.services.adaptive_quiz_service import AdaptiveQuizService
-from backend.schemas.quiz import (
-    QuizAnswerInput,
-    QuizNextQuestionResponse,
-    QuizQuestionForParticipant # Used in response schemas
+# Dependencies and Schemas
+from backend.api.deps import get_llm_quiz_service # Dependency getter for the service
+from backend.schemas.quiz import ( # Import the correct schemas
+    GeneratedMCQForParticipant,
+    GeneratedMCQAnswerInput,
+    GeneratedMCQAnswerFeedback
 )
-# Models might be needed if service returns them directly sometimes
-# from backend.db.models import QuizAttemptState
+from backend.services.llm_quiz_service import LLMQuizService # Import the service class
 
-# Dependency function to get the service instance
-def get_adaptive_quiz_service(session: AsyncSession = Depends(get_session)) -> AdaptiveQuizService:
-    # Initialize service; could potentially inject CAT params from config here
-    return AdaptiveQuizService(session=session)
-
-# --- Define Response Schema for Starting Quiz ---
-class QuizStartResponse(BaseModel):
-    """
-    Response model when starting a quiz, includes the attempt ID and the first question.
-    """
-    attempt_id: uuid.UUID
-    first_question: QuizQuestionForParticipant
-
-
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
+
 @router.post(
-    "/start/{session_uuid}", # Corrected path
-    response_model=QuizStartResponse,
-    status_code=status.HTTP_201_CREATED,
-    tags=["Quiz"],
-    summary="Start a New Adaptive Quiz Attempt"
+    "/next/{session_uuid}",
+    response_model=GeneratedMCQForParticipant, # Response model matches service return
+    tags=["LLM Quiz"],
+    summary="Get Next LLM-Generated Quiz Question",
+    description="Gets the next appropriate MCQ for the participant's session. Returns a question or a completion/error status."
 )
-async def start_new_quiz(
-    session_uuid: uuid.UUID,
-    quiz_id: Optional[str] = Query(None, description="Optional identifier if multiple quizzes exist"),
-    service: AdaptiveQuizService = Depends(get_adaptive_quiz_service)
+async def get_next_llm_question( # Renamed function for clarity
+        session_uuid: uuid.UUID,
+        service: LLMQuizService = Depends(get_llm_quiz_service) # Inject the service
 ):
     """
-    Initializes a new adaptive quiz attempt for the given session.
-    - Selects the first question based on initial ability estimate.
-    - Creates and stores the initial state for the quiz attempt.
-
-    Args:
-        session_uuid (uuid.UUID): The session identifier from the URL path.
-        quiz_id (Optional[str]): Optional identifier for a specific quiz item bank.
-
-    Returns:
-        QuizStartResponse: Contains the unique `attempt_id` for this quiz attempt
-                           and the details of the `first_question` to be presented.
-
-    Raises:
-        HTTPException 404: If the session_uuid is not found (implicitly checked if needed by service).
-        HTTPException 500: If no valid quiz questions are found or the first item cannot be selected.
+    Gets the next appropriate MCQ for the participant's session using the LLMQuizService.
+    Handles potential errors gracefully by returning them within the defined schema.
     """
     try:
-        # The service returns the DB state object and the first question schema
-        attempt_state, first_question = await service.start_quiz(
-            session_uuid=session_uuid,
-            quiz_id=quiz_id
-        )
-        # Structure the response using the custom schema
-        return QuizStartResponse(
-            attempt_id=attempt_state.attempt_id,
-            first_question=first_question
-        )
-    except ValueError as e:
-        # Handle errors like no items, inability to select first item, or invalid session
-         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, # Or 404 if session not found was the cause
-            detail=f"Failed to start quiz: {e}"
-        )
-    except Exception as e:
-        # Log the exception e
+        logger.info(f"Request received for next LLM question for session {session_uuid}")
+        # --- Call the CORRECT service method name ---
+        # Pass session_uuid to the service method, which expects session_id
+        next_question_response = await service.get_next_question(session_id=session_uuid)
+        # -----------------------------------------
+
+        # The service method should now always return a valid schema object
+        if not next_question_response:
+            # This case indicates an unexpected issue within the service if it returns None
+            logger.error(f"Service returned None unexpectedly for session {session_uuid}")
+            # Return a valid schema indicating an error state
+            return GeneratedMCQForParticipant(quiz_complete=True, error="Internal error fetching question state.")
+
+        # Log details before returning
+        log_mcq_id = getattr(next_question_response, 'mcq_id', 'N/A') # Safely get mcq_id
+        log_complete = getattr(next_question_response, 'quiz_complete', 'N/A')
+        log_error = getattr(next_question_response, 'error', None)
+        logger.info(f"Returning next question state for session {session_uuid}: MCQ ID={log_mcq_id}, Complete={log_complete}, Error='{log_error}'")
+
+        return next_question_response # Return the schema object received from the service
+
+    except Exception as e: # Catch any truly unexpected errors not handled by the service
+        logger.exception(f"Unhandled exception in /quiz/next endpoint for session {session_uuid}: {e}")
+        # Raise a generic 500 error - avoid returning schema here as it might fail validation
+        # if the exception occurred before the service call completed.
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected error occurred while starting the quiz: {e}"
+            detail="An unexpected server error occurred while fetching the next question."
         )
 
 
 @router.post(
-    "/answer/{attempt_id}", # Corrected path
-    response_model=QuizNextQuestionResponse,
-    tags=["Quiz"],
-    summary="Submit an Answer and Get Next Question"
+    "/answer_llm/{session_uuid}", # Use the distinct path
+    response_model=GeneratedMCQAnswerFeedback, # Response model matches service return
+    tags=["LLM Quiz"],
+    summary="Submit Answer for LLM-Generated MCQ",
+    description="Processes the participant's answer, records attempt, returns feedback."
 )
-async def submit_answer_and_get_next(
-    attempt_id: uuid.UUID,
-    answer_data: QuizAnswerInput,
-    service: AdaptiveQuizService = Depends(get_adaptive_quiz_service)
+async def submit_llm_answer( # Renamed function for clarity
+        session_uuid: uuid.UUID,
+        answer_data: GeneratedMCQAnswerInput = Body(...), # Use correct input schema from request Body
+        service: LLMQuizService = Depends(get_llm_quiz_service) # Inject the service
 ):
     """
-    Processes the participant's answer to the current question:
-    - Updates the quiz attempt state (response history, administered items).
-    - Re-estimates the participant's ability (theta) and standard error (SE).
-    - Checks stopping criteria (e.g., max items, min standard error).
-    - Selects the next item based on the updated ability estimate if the quiz continues.
-
-    Args:
-        attempt_id (uuid.UUID): The unique identifier for this quiz attempt.
-        answer_data (QuizAnswerInput): The submitted answer details (question_id, selected_option_index).
-
-    Returns:
-        QuizNextQuestionResponse: Contains the next question to present (if quiz is not complete),
-                                  a flag indicating completion status, and potentially final results.
-
-    Raises:
-        HTTPException 404: If the attempt_id is not found.
-        HTTPException 400: If the quiz attempt is already complete or input is invalid.
-        HTTPException 500: For internal errors during estimation or item selection.
+    Processes the participant's answer using the LLMQuizService.
     """
     try:
-        next_step_response = await service.process_answer(
-            attempt_id=attempt_id,
-            answer_input=answer_data
+        logger.info(f"Processing answer for session {session_uuid}, mcq {answer_data.mcq_id}, chosen letter {answer_data.chosen_answer_letter}")
+        # --- Call the CORRECT service method name ---
+        feedback = await service.submit_answer(
+            session_id=session_uuid, # Pass session_id
+            request_data=answer_data     # Pass the validated input schema object
         )
-        return next_step_response
-    except ValueError as e:
-         # Handle specific errors like attempt not found, already complete, invalid question
-         if "not found" in str(e).lower():
-             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-         else:
-              raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except RuntimeError as e:
-         # Handle potentially more critical errors (e.g., item bank inconsistencies)
-         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-    except Exception as e:
-        # Log the exception e
+        # ------------------------------------------
+        logger.info(f"Answer processed for session {session_uuid}, mcq {answer_data.mcq_id}. Correct: {feedback.is_correct}, QuizComplete: {feedback.quiz_complete}")
+        return feedback # Return the feedback schema object from the service
+
+    except ValueError as e: # Catch specific logical errors raised by the service
+        logger.warning(f"ValueError processing answer for session {session_uuid}, mcq {answer_data.mcq_id}: {e}")
+        # Determine appropriate HTTP status based on the error
+        if "not found" in str(e).lower(): # e.g., "Session not found", "Question not found"
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        else: # Other value errors likely indicate bad input
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except RuntimeError as e: # Catch internal service runtime errors (e.g., DB issue, unexpected LLM state)
+        logger.error(f"Runtime error processing answer for session {session_uuid}, mcq {answer_data.mcq_id}: {e}", exc_info=True) # Log traceback
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    except Exception as e: # Catch any other unexpected error
+        logger.exception(f"Unexpected error processing answer for session {session_uuid}, mcq {answer_data.mcq_id}: {e}") # Log traceback
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected error occurred while processing the answer: {e}"
+            detail="Failed to process answer due to an unexpected server error."
         )

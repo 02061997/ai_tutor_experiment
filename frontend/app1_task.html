@@ -3,113 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Research Study - App 1 Task</title>
+    <title>AI Research Tutor - App 1</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
-        /* Basic layout styles for App1 Task */
-        body { background-color: #f8f9fa; }
-        .app1-container {
-            display: flex;
-            height: 100vh;
-            width: 100vw;
-            overflow: hidden;
+        /* Optional: Add some spacing for the download link */
+        #download-area {
+            padding: 10px 20px;
+            text-align: right; /* Align link to the right */
+            background-color: #f8f9fa; /* Light background */
+            border-bottom: 1px solid #dee2e6;
         }
-        #paper-display-area {
-            flex: 1; /* Take half the space */
-            padding: 20px;
-            overflow-y: auto;
-            border-right: 1px solid #ccc;
-            background-color: #fff;
+        #pdf-download-link {
+            font-weight: bold;
         }
-        #chat-interface-area {
-            flex: 1; /* Take half the space */
-            padding: 20px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column; /* Stack messages and input */
-            background-color: #f1f3f5;
+        /* Optional: Style for the LLM info */
+        #llm-info {
+            font-size: 0.9em;
+            color: #6c757d; /* Gray text color */
+            margin-top: 5px;
+            margin-bottom: 0;
+            padding-left: 20px; /* Align with h2 padding if needed */
         }
-        #chat-messages {
-            flex-grow: 1; /* Message area takes available space */
-            border: 1px solid #ccc;
-            background-color: #fff;
-            padding: 10px;
-            margin-bottom: 10px;
-            overflow-y: auto; /* Allow messages to scroll */
-            min-height: 200px; /* Ensure minimum height */
-        }
-        #chat-input-area {
-            display: flex;
-            gap: 10px;
-        }
-        #chat-input {
-            flex-grow: 1;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        #chat-submit {
-            padding: 10px 15px;
-        }
-         #proceed-button-container {
-             padding: 20px;
-             text-align: center;
-             border-top: 1px solid #ccc;
-             background-color: #fff;
-         }
-        .message {
-            margin-bottom: 10px;
-            padding: 8px 12px;
-            border-radius: 5px;
-            max-width: 80%;
-        }
-        .user-message {
-            background-color: #e7f5ff;
-            margin-left: auto; /* Align user messages to the right */
-            text-align: right;
-        }
-        .llm-message {
-            background-color: #f1f3f5;
-            margin-right: auto; /* Align LLM messages to the left */
-            text-align: left;
-        }
-         .system-message {
-             font-style: italic;
-             color: #6c757d;
-             text-align: center;
-             font-size: 0.9em;
-             margin: 10px 0;
-         }
     </style>
 </head>
 <body>
-    <div class="app1-container">
-        <aside id="paper-display-area">
-            <h2>Assigned Paper</h2>
-            <p>Paper Title/Identifier: <strong id="assigned-paper-name">Loading...</strong></p>
-            <hr>
-            <div id="paper-content">
-                <p>(Full paper content or PDF viewer placeholder)</p>
-            </div>
-        </aside>
-
-        <main id="chat-interface-area">
-            <h2>Chat with AI Assistant</h2>
-            <div id="chat-messages">
-                <div class="system-message">Chat interface placeholder. LLM interaction not yet implemented.</div>
-                </div>
-            <div id="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Enter your prompt here...">
-                <button id="chat-submit">Send</button>
-            </div>
-        </main>
-
+<div id="app1-header">
+    <h2>Chat with AI about: <span id="assigned-paper-name">Loading...</span></h2>
+    <p id="llm-info">Powered by: Llama 3 70B (via Groq)</p>
+    <div id="download-area">
+        <a id="pdf-download-link" href="#" target="_blank" download="paper.pdf">Download Assigned Paper</a>
     </div>
-     <div id="proceed-button-container">
-         <button id="proceed-button">Finish Task & Proceed to Final Test</button>
-     </div>
+</div>
 
+<div class="app1-chat-container">
+    <section id="chat-interface-area">
+        <div id="chat-messages" role="log" aria-live="polite">
+        </div>
+        <div id="chat-input-area">
+            <textarea id="chat-input" placeholder="Ask a question about the paper..." rows="3"></textarea>
+            <button id="chat-submit">Send</button>
+        </div>
+    </section>
+</div>
 
-    <script src="js/app1_task.js" type="module"></script>
+<div id="proceed-button-container">
+    <button id="proceed-button">Proceed to Final Test</button>
+</div>
+
+<div id="app1-error-message" style="color: red; font-weight: bold; padding: 10px; border: 1px solid red; margin-top: 10px; display: none;"></div>
+
+<script src="js/app1_task.js" type="module"></script>
+
 </body>
 </html>

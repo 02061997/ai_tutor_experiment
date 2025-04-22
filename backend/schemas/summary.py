@@ -1,21 +1,30 @@
 # backend/schemas/summary.py
 
-from pydantic import BaseModel, Field
-from typing import Optional
+# --- Existing Imports ---
+from pydantic import BaseModel, Field, ConfigDict # Ensure BaseModel is imported
+from typing import Optional, List, Dict, Union # Added List, Dict, Union
 
-# --- Schemas for App2 Summary Generation ---
-
+# --- Existing Schemas (if any) ---
 class SummaryRequest(BaseModel):
-    """
-    Schema for the request body sent to the summary generation endpoint.
-    """
-    text_to_summarize: str = Field(..., description="The text content that needs to be summarized.")
-    # Optional: Could add parameters like desired length, focus points, etc.
-    # max_length: Optional[int] = None
+    text_to_summarize: str
 
-class SummaryResponse(BaseModel):
-    """
-    Schema for the response body returned by the summary generation endpoint.
-    """
-    summary_text: str = Field(..., description="The AI-generated summary text.")
+class SummaryResponse(BaseModel): # Keep or remove if fully replaced by structured
+    summary_text: str
 
+# --- NEW Schemas for Structured Summary ---
+class StructuredSummarySection(BaseModel):
+    """Represents one section of the structured summary."""
+    title: str
+    # Content can be a single string (for sections without sub-points)
+    # or a dictionary (for sections with sub-points like Introduction)
+    content: Union[str, Dict[str, str]]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StructuredSummaryResponse(BaseModel):
+    """The overall response containing the list of summary sections."""
+    summary: List[StructuredSummarySection]
+
+    model_config = ConfigDict(from_attributes=True)
+# --- END NEW SCHEMAS ---

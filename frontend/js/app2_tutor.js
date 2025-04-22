@@ -1,292 +1,446 @@
-// frontend/js/app2_tutor.js
-// Updated for 3-Step Flow & Integrated PDF Text Extraction + Summary API Call
+/**
+ * @fileoverview Main script for the App2 Tutor interface (PDF + Summary + LLM Quiz).
+ */
+
 'use strict';
 
 // --- Module Imports ---
-import * as apiClient from './modules/api_client.js';
-import * as pdfViewer from './modules/pdf_viewer.js';
-import * as pdfTracker from './modules/pdf_tracker.js';
-import * as heatmapTracker from './modules/heatmap_tracker.js';
-import * as quizUi from './modules/quiz_ui.js';
-
-// Import specific component from pdf.mjs
-import { GlobalWorkerOptions } from './libs/pdfjs/build/pdf.mjs';
+import {
+    // API Client functions
+    getSessionDetails, // Keep if needed for session info
+    getApp2Summary,    // Function to fetch summary from backend
+    getNextLLMQuestion,// Function to get next quiz question
+    submitLLMAnswer,   // Function to submit quiz answer
+    logInteractions    // Function to log interaction data
+} from './modules/api_client.js';
+import * as pdfViewer from './modules/pdf_viewer.js'; // Import PDF viewer functions
+import * as pdfTracker from './modules/pdf_tracker.js'; // Import PDF tracker functions
+import * as heatmapTracker from './modules/heatmap_tracker.js'; // Import heatmap tracker functions
+import { QuizUI } from './modules/quiz_ui.js'; // Import QuizUI class
+import { GlobalWorkerOptions } from './libs/pdfjs/build/pdf.mjs'; // Import from pdf.js library
 
 // --- DOM References ---
-// View Containers
-const learningInterfaceView = document.getElementById('learning-interface-view');
-const quizContainer = document.getElementById('quiz-container');
-const recommendationsView = document.getElementById('recommendations-view');
-// Learning View Elements
+// Main Containers
+const pdfAndSummaryContainer = document.getElementById('pdf-summary-container');
+const quizContainer = document.getElementById('quiz-container'); // Keep existing ID
+
+// PDF & Summary Elements
 const assignedPaperNameElement = document.getElementById('assigned-paper-name');
+const pdfViewerContainerId = 'pdf-viewer-area';
 const summaryContentElement = document.getElementById('summary-content');
-const proceedToQuizButton = document.getElementById('proceed-to-quiz-button');
-// Quiz View Elements
-const showRecommendationsButton = document.getElementById('show-recommendations-button');
-// Recommendations View Elements
-const recommendationsListElement = document.getElementById('recommendations-list');
-const reviewPaperButton = document.getElementById('review-paper-button');
-const reviewQuizButton = document.getElementById('review-quiz-button');
-const takeFinalTestButton = document.getElementById('take-final-test-button');
+const startQuizButton = document.getElementById('start-quiz-btn');
+
+// Final Navigation Button
+const finishTaskButton = document.getElementById('finish-task-btn');
 
 // --- Global State ---
-let currentSessionId = null;
-let currentAttemptId = null; // For the quiz
+let participantId = null; // Use session ID as participant ID for API calls
+let currentMcqId = null;
 let assignedPaperUrl = null;
-let quizResultsData = null; // Store quiz results for recommendations
+let isQuizActive = false;
+let quizUi = null; // Instance of QuizUI
 
 // --- Configuration ---
-// Path to pdf.js worker (relative to HTML, used by the worker loader)
-const PDF_WORKER_SRC = 'js/libs/pdfjs/build/pdf.worker.mjs';
+const PDF_WORKER_SRC = '/js/libs/pdfjs/build/pdf.worker.mjs'; // Ensure path is correct
+const QUIZ_CONTAINER_SELECTOR = '#quiz-section'; // Selector for QuizUI target
 
 // --- Helper Functions ---
 
-/**
- * Retrieves session ID from URL query parameter ?session=...
- * @returns {string|null} Session ID or null if not found.
- */
-function getSessionIdFromUrl() {
+function getParticipantIdFromUrl() {
     const urlParams = new URLSearchParams(window.location.search);
-    const sessionId = urlParams.get('session');
-    if (!sessionId) {
+    const id = urlParams.get('session'); // Treat session ID as the participant identifier here
+    if (!id) {
         console.error("Session ID not found in URL.");
-        document.body.innerHTML = '<h1>Error: Session ID missing. Cannot start application.</h1>';
+        document.body.innerHTML = `<div class="container error-container"><h1>Error: Session ID Missing</h1><p>Cannot start the application. Please ensure you followed the correct link.</p></div>`;
         return null;
     }
-    console.log("Retrieved Session ID:", sessionId);
-    return sessionId;
+    console.log("Retrieved Session ID (used as participantId):", id);
+    return id;
 }
 
-/**
- * Shows the specified view div and hides the others.
- * @param {string} viewId - The ID of the view container div to show ('learning-interface-view', 'quiz-container', 'recommendations-view').
- */
-function showView(viewId) {
-    const views = [learningInterfaceView, quizContainer, recommendationsView];
-    views.forEach(view => {
-        if (view) { // Check if element exists
-            view.style.display = (view.id === viewId) ? 'block' : 'none';
-        } else {
-            console.warn(`View element with ID potentially matching ${viewId} not found.`);
-        }
-    });
-    console.log(`Switched view to: ${viewId}`);
+function showSection(sectionId) {
+    // Assumes pdf-summary-container and quiz-container cover all main views
+    const pdfView = document.getElementById('pdf-summary-container');
+    const quizView = document.getElementById('quiz-container'); // Use the correct ID for the quiz view container
+    // Add other view containers here if needed (e.g., recommendations)
+    const recommendationsView = document.getElementById('recommendations-view');
+
+    if (pdfView) pdfView.style.display = (sectionId === 'pdf-summary-container') ? '' : 'none';
+    if (quizView) quizView.style.display = (sectionId === 'quiz-container') ? '' : 'none';
+    if (recommendationsView) recommendationsView.style.display = (sectionId === 'recommendations-view') ? '' : 'none';
+
+    console.log(`Showing section: ${sectionId}`);
 }
+
 
 // --- Initialization Function ---
-async function initApp() {
-    console.log("Initializing App 2 Tutor Environment...");
-    currentSessionId = getSessionIdFromUrl();
-    if (!currentSessionId) return;
+async function initializeApp2Tutor() {
+    // --- ADDED DEBUG LOG ---
+    console.log("DEBUG: initializeApp2Tutor started.");
+    // -----------------------
+    participantId = getParticipantIdFromUrl();
+    if (!participantId) return;
 
-    // Configure PDF.js worker using imported object
+    showSection('pdf-summary-container'); // Show PDF/Summary first
+    // quizContainer is initially hidden via HTML style="display: none;"
+
+    if (startQuizButton) startQuizButton.disabled = true; // Start disabled
+    if (finishTaskButton) finishTaskButton.style.display = 'none';
+
     if (typeof GlobalWorkerOptions !== 'undefined') {
         GlobalWorkerOptions.workerSrc = PDF_WORKER_SRC;
-        console.log("PDF.js worker source set via GlobalWorkerOptions.");
+        console.log("PDF.js worker source set.");
     } else {
-        console.error("PDF.js GlobalWorkerOptions is not available. Worker path not set.");
-        document.body.innerHTML = '<h1>Error: PDF Library components failed to load.</h1>';
+        console.error("PDF.js GlobalWorkerOptions is not available. PDF viewer may fail.");
+        if(summaryContentElement) summaryContentElement.innerHTML = `<p class="error">Critical Error: PDF library component failed to load.</p>`;
         return;
     }
 
     try {
-        // Show only the learning interface initially
-        showView('learning-interface-view');
-
-        // Determine PDF URL (Placeholder logic)
-        assignedPaperUrl = '/static/pdfs/chapter1.pdf'; // Placeholder - ADJUST PATH AS NEEDED
+        // --- Get Assigned Paper URL (Example: use default or fetch from session) ---
+        assignedPaperUrl = '/static/pdfs/chapter1.pdf'; // Default PDF path for Paper1
+        // TODO: Add logic to determine Paper2 path if needed based on session details
         if (assignedPaperNameElement) {
-            assignedPaperNameElement.textContent = assignedPaperUrl.split('/').pop();
-        } else {
-             console.warn("Element 'assigned-paper-name' not found.");
+            assignedPaperNameElement.textContent = assignedPaperUrl.split('/').pop() || 'Assigned Research Paper';
         }
 
-        // Initialize PDF Viewer - this loads the PDF
+        // --- Initialize PDF Viewer ---
         await pdfViewer.initPdfViewer({
-            containerId: 'pdf-viewer-area', canvasId: 'pdf-canvas', textLayerId: 'text-layer',
-            pdfUrl: assignedPaperUrl,
+            containerId: pdfViewerContainerId, canvasId: 'pdf-canvas', textLayerId: 'text-layer',
             prevButtonId: 'prev-page', nextButtonId: 'next-page',
             pageNumSpanId: 'page-num', pageCountSpanId: 'page-count',
+            pdfUrl: assignedPaperUrl
         });
         console.log("PDF Viewer Initialized.");
 
-        // Initialize Interaction Trackers
-        pdfTracker.initPdfInteractionTracker(currentSessionId, 'pdf-viewer-area', assignedPaperUrl);
-        heatmapTracker.initHeatmapTracker(currentSessionId, 'pdf-viewer-area');
+        // --- Initialize Interaction Trackers ---
+        pdfTracker.initPdfInteractionTracker(participantId, pdfViewerContainerId, assignedPaperUrl);
+        heatmapTracker.initHeatmapTracker(participantId, pdfViewerContainerId);
         console.log("Interaction Trackers Initialized.");
 
-        // Fetch and display AI Summary (Now uses text extraction and API call)
-        // Run this *after* PDF is loaded by initPdfViewer
-        await fetchAndDisplaySummary();
+        // --- Fetch and Display Summary (Calls actual API now) ---
+        await fetchAndDisplaySummary(); // Enable quiz button inside on success
 
-        // Initialize Quiz UI module (it will be hidden initially by CSS/showView)
-        quizUi.initQuizUi({
-            questionContainerId: 'quiz-question-container',
-            feedbackContainerId: 'quiz-feedback-container',
-            submitButtonId: 'submit-answer-button',
-            onAnswerSubmit: handleQuizAnswerSubmit // Pass the callback
-        });
-        console.log("Quiz UI Initialized (but hidden).");
+        // --- Initialize Quiz UI ---
+        // Ensure the HTML has <div id="quiz-section">...</div> inside #quiz-container
+        quizUi = new QuizUI(QUIZ_CONTAINER_SELECTOR, handleQuizAnswerSubmit);
+        console.log("Quiz UI Initialized."); // Log moved after instantiation
 
-        // Add event listener for the "Start Quiz" button
-        proceedToQuizButton?.addEventListener('click', startQuizPhase);
+        // --- Add Event Listeners ---
+        startQuizButton?.addEventListener('click', startQuizPhase);
+        finishTaskButton?.addEventListener('click', navigateToFinalTest);
 
     } catch (error) {
         console.error("Initialization failed:", error);
-        const mainContainer = document.querySelector('.app2-main-container');
-        if(mainContainer) mainContainer.innerHTML = `<h1>Application Initialization Failed</h1><p>${error.message}</p>`;
+        const mainContainer = document.querySelector('.app2-main-container') || document.body;
+        mainContainer.innerHTML = `<div class="container error-container"><h1>Application Initialization Failed</h1><p>${error.message}</p><p>Please try refreshing the page or contact support.</p></div>`;
     }
 }
 
 /**
- * Fetches and displays the AI-generated summary.
- * Extracts text from the PDF first, then calls the backend summary API.
+ * Fetches the AI-generated structured summary from the backend and displays it.
+ * Enables the "Start Quiz" button on success.
  */
 async function fetchAndDisplaySummary() {
-    if (!summaryContentElement) return;
-    summaryContentElement.innerHTML = '<p><i>Extracting text for summary...</i></p>'; // Update status
+    // --- ADDED DEBUG LOG ---
+    console.log("DEBUG: fetchAndDisplaySummary started.");
+    // -----------------------
+    if (!summaryContentElement) {
+        console.error("Summary content element not found.");
+        return; // Exit if container doesn't exist
+    }
+    summaryContentElement.innerHTML = '<p><i>Generating structured summary from AI... Please wait.</i></p>';
+    if (startQuizButton) startQuizButton.disabled = true; // Ensure button is disabled
 
     try {
-        // 1. Extract text from the loaded PDF (extract all pages for now)
-        // Ensure pdfViewer module and function exist and PDF is loaded
-        if (typeof pdfViewer?.extractTextFromPdf !== 'function') {
-             throw new Error("PDF text extraction function is not available.");
-        }
-        const pdfText = await pdfViewer.extractTextFromPdf(); // Extract text from all pages
-        if (!pdfText || pdfText.trim().length === 0) {
-            throw new Error("Could not extract text from PDF for summary.");
-        }
-        console.log(`Extracted ${pdfText.length} characters for summary.`);
-        summaryContentElement.innerHTML = '<p><i>Generating summary from AI...</i></p>'; // Update status
+        // --- ADDED DEBUG LOG ---
+        console.log(`DEBUG: Attempting to call getApp2Summary for session: ${participantId}`);
+        // -----------------------
+        const summaryResponse = await getApp2Summary(participantId); // Calls GET /api/v1/app2/summary/{session_id}
 
-        // 2. Call the backend API to get the summary
-        // Ensure apiClient module and function exist
-        if (typeof apiClient?.getApp2Summary !== 'function') {
-             throw new Error("API client function for summary is not available.");
-        }
-        const summaryResponse = await apiClient.getApp2Summary(pdfText);
-        const summaryText = summaryResponse.summary_text;
+        // --- ADDED DEBUG LOG ---
+        console.log('DEBUG: Data received by fetchAndDisplaySummary:', summaryResponse);
+        // -----------------------
 
-        // 3. Display the summary
-        summaryContentElement.innerHTML = ''; // Clear loading message
-        const summaryPara = document.createElement('p');
-        summaryPara.style.whiteSpace = 'pre-wrap'; // Preserve line breaks from summary
-        summaryPara.textContent = summaryText;
-        summaryContentElement.appendChild(summaryPara);
-        console.log("Summary displayed.");
+        // Check if the response has the 'summary' key and it's an array
+        if (!summaryResponse || !Array.isArray(summaryResponse.summary) || summaryResponse.summary.length === 0) {
+            if (summaryResponse && summaryResponse.error) {
+                throw new Error(`Server error fetching summary: ${summaryResponse.error}`);
+            } else if (summaryResponse && summaryResponse.detail) {
+                throw new Error(`Server error fetching summary: ${summaryResponse.detail}`);
+            } else {
+                console.error("Received summary data:", summaryResponse);
+                throw new Error("Received empty or invalid structured summary data from server.");
+            }
+        }
+
+        // Clear loading message
+        summaryContentElement.innerHTML = '';
+
+        // Iterate through the structured summary array and display it
+        summaryResponse.summary.forEach(section => {
+            if (!section || !section.title) return;
+
+            const titleElement = document.createElement('h3');
+            titleElement.textContent = section.title;
+            titleElement.style.marginTop = '1em';
+            summaryContentElement.appendChild(titleElement);
+
+            if (typeof section.content === 'string') {
+                const contentPara = document.createElement('p');
+                contentPara.style.whiteSpace = 'pre-wrap';
+                contentPara.textContent = section.content || "(No content)";
+                summaryContentElement.appendChild(contentPara);
+            } else if (typeof section.content === 'object' && section.content !== null) {
+                const subList = document.createElement('ul');
+                subList.style.listStylePosition = 'inside';
+                for (const subTitle in section.content) {
+                    if (Object.hasOwnProperty.call(section.content, subTitle)) {
+                        const listItem = document.createElement('li');
+                        const subContent = section.content[subTitle] || "(No content)";
+                        listItem.innerHTML = `<strong>${subTitle}:</strong> `;
+                        listItem.appendChild(document.createTextNode(subContent));
+                        listItem.style.whiteSpace = 'pre-wrap';
+                        listItem.style.marginLeft = '1em';
+                        subList.appendChild(listItem);
+                    }
+                }
+                summaryContentElement.appendChild(subList);
+            } else {
+                const errorPara = document.createElement('p');
+                errorPara.textContent = "(Invalid content format for this section)";
+                errorPara.style.fontStyle = 'italic';
+                summaryContentElement.appendChild(errorPara);
+            }
+        });
+
+        console.log("Structured summary displayed successfully.");
+
+        // Enable quiz button only after summary is successfully displayed
+        if (startQuizButton) {
+            startQuizButton.disabled = false;
+            console.log("Start Quiz button enabled.");
+        }
 
     } catch (error) {
         console.error("Failed to fetch or display summary:", error);
-        summaryContentElement.innerHTML = `<p style="color: red;">Error loading summary: ${error.message}</p>`;
+        summaryContentElement.innerHTML = `<p class="error" style="color: red;">Error loading summary: ${error.message}</p>`;
+        if (startQuizButton) {
+            startQuizButton.disabled = true;
+            console.log("Start Quiz button kept disabled due to summary error.");
+        }
     }
 }
 
 
 /**
- * Handles the transition to the quiz phase.
+ * Handles the transition to the quiz phase and fetches the FIRST question.
  */
 async function startQuizPhase() {
+    console.log("DEBUG: startQuizPhase function called!");
     console.log("Starting Quiz Phase...");
-    showView('quiz-container'); // Show the quiz container, hide others
-    if(proceedToQuizButton) {
-        proceedToQuizButton.disabled = true;
-        proceedToQuizButton.textContent = 'Quiz in Progress...';
+    if (!quizUi || !participantId) {
+        console.error("Quiz UI or Participant ID not available.");
+        alert("Error: Cannot start quiz. Please refresh.")
+        return;
     }
 
+    showSection('quiz-container'); // Show the quiz container view
+
+    if (startQuizButton) {
+        startQuizButton.disabled = true;
+        startQuizButton.textContent = 'Quiz Started';
+    }
+    if (finishTaskButton) finishTaskButton.style.display = 'none';
+
+    isQuizActive = true;
+    quizUi.reset();
+    quizUi.showLoading();
+
     try {
-        // Start the quiz via API
-        const startResponse = await apiClient.startQuiz(currentSessionId /*, optionalQuizId */);
-        if (startResponse && startResponse.attempt_id && startResponse.first_question) {
-            currentAttemptId = startResponse.attempt_id;
-            console.log("Quiz started via API. Attempt ID:", currentAttemptId);
-            // Display the first question using the initialized Quiz UI module
-            quizUi.displayQuestion(startResponse.first_question);
+        console.log(`DEBUG: Calling getNextLLMQuestion for participant: ${participantId}`);
+        const firstQuestionData = await getNextLLMQuestion(participantId); // API Call
+        console.log("DEBUG: Received response from getNextLLMQuestion:", firstQuestionData);
+        quizUi.hideLoading();
+
+        if (firstQuestionData && firstQuestionData.mcq_id) {
+            currentMcqId = firstQuestionData.mcq_id;
+            console.log("First LLM question received. MCQ ID:", currentMcqId);
+            quizUi.showQuestion(firstQuestionData);
+        } else if (firstQuestionData?.quiz_complete) {
+            console.log("Backend indicated quiz is already complete or no questions available.");
+            handleQuizCompletion(firstQuestionData.error); // Pass potential error message
         } else {
-            throw new Error("Failed to start quiz or received invalid response from API.");
-        }
-    } catch (error) {
-        console.error("Failed to start quiz phase:", error);
-        quizUi.showFeedback(`Error starting quiz: ${error.message}`, true);
-        showView('learning-interface-view'); // Example: Go back on error
-        if(proceedToQuizButton){ // Re-enable the button if going back
-            proceedToQuizButton.disabled = false;
-            proceedToQuizButton.textContent = 'Start Quiz';
-        }
-    }
-}
-
-/**
- * Callback function passed to Quiz UI, handles answer submission result.
- * @param {object} selectedAnswer - Object like { question_id: '...', selected_option_index: 0 }
- */
-async function handleQuizAnswerSubmit(selectedAnswer) {
-    console.log("Orchestrator: Submitting answer:", selectedAnswer);
-    if (!currentAttemptId || selectedAnswer === null) { console.error("Cannot submit answer: Missing attempt ID or answer data."); quizUi.showFeedback("Error: Could not submit answer. Invalid data.", true); return; }
-    quizUi.setSubmitButtonState(false); quizUi.clearFeedback();
-    try {
-        const response = await apiClient.submitQuizAnswer(currentAttemptId, selectedAnswer);
-        if (response.is_complete) {
-            console.log("Orchestrator: Quiz Complete!", response);
-            quizResultsData = response;
-            quizUi.displayCompletion(response);
-            if (showRecommendationsButton) {
-                showRecommendationsButton.style.display = 'inline-block';
-                showRecommendationsButton.disabled = false;
-                // Use replaceWith(cloneNode(true)) to ensure only one listener is attached
-                const newButton = showRecommendationsButton.cloneNode(true);
-                showRecommendationsButton.parentNode.replaceChild(newButton, showRecommendationsButton);
-                newButton.addEventListener('click', startRecommendationsPhase);
+            if (firstQuestionData && firstQuestionData.error) {
+                throw new Error(`Server error getting first question: ${firstQuestionData.error}`);
+            } else {
+                throw new Error("Failed to get first question: Received invalid data structure.");
             }
-            quizUi.setSubmitButtonState(false);
-        } else if (response.next_question) {
-            console.log("Orchestrator: Displaying next question.");
-            quizUi.displayQuestion(response.next_question);
-        } else { console.error("Orchestrator: Invalid response from submitQuizAnswer:", response); quizUi.showFeedback("Error: Received invalid response from server.", true); quizUi.setSubmitButtonState(true); }
+        }
     } catch (error) {
-        console.error("Orchestrator: Error submitting quiz answer:", error);
-        quizUi.showFeedback(`Error submitting answer: ${error.message || 'Please try again.'}`, true);
-        quizUi.setSubmitButtonState(true);
+        console.error("Failed to start quiz phase / get first question:", error);
+        quizUi.hideLoading();
+        quizUi.showError(`Error starting quiz: ${error.message}. Please try refreshing the page.`);
+        isQuizActive = false;
     }
 }
 
 /**
- * Handles the transition to the recommendations phase.
+ * Callback function passed to QuizUI instance. Handles answer submission.
+ * @param {string} selectedAnswerLetter - The letter ('A', 'B', 'C', or 'D') selected by the user.
  */
-async function startRecommendationsPhase() {
-     console.log("Starting Recommendations Phase...");
-     showView('recommendations-view');
-     if (!recommendationsListElement) return;
-     recommendationsListElement.innerHTML = '<li><i>Loading recommendations...</i></li>';
-     try {
-         // --- Placeholder for fetching Recommendations ---
-         // TODO: Implement backend endpoint/service for recommendations
-         // const recommendationsResponse = await apiClient.getRecommendations(sessionId, currentAttemptId);
-         // const recommendations = recommendationsResponse.recommendations || [];
+async function handleQuizAnswerSubmit(selectedAnswerLetter) { // Parameter is the letter now
+    // Parameter name updated for clarity, assuming QuizUI calls this with the letter 'A'/'B'/'C'/'D'
+    console.log(`DEBUG: handleQuizAnswerSubmit called with answer letter: ${selectedAnswerLetter}`);
+    if (!isQuizActive || !participantId || !currentMcqId || !selectedAnswerLetter) {
+        console.error("Cannot submit answer: Quiz not active or missing data.");
+        quizUi.showError("Error: Could not submit answer. Invalid state.", true);
+        return;
+    }
 
-         // Placeholder: Use weak topics directly from quiz results
-         const recommendations = quizResultsData?.identified_weak_topics || ["No specific topics identified for review (placeholder)."];
-         await new Promise(resolve => setTimeout(resolve, 500));
-         // --- End Placeholder ---
+    try {
+        console.log(`DEBUG: Calling submitLLMAnswer for participant ${participantId}, mcq ${currentMcqId}, answer ${selectedAnswerLetter}`);
+        // Pass the letter to the API client function
+        const feedbackResponse = await submitLLMAnswer(participantId, currentMcqId, selectedAnswerLetter);
+        console.log("DEBUG: Received feedback response:", feedbackResponse);
 
-         recommendationsListElement.innerHTML = '';
-         if (recommendations && recommendations.length > 0 && recommendations[0] !== "No specific topics identified for review (placeholder).") {
-             recommendations.forEach(topic => { const li = document.createElement('li'); li.textContent = topic; recommendationsListElement.appendChild(li); });
-         } else { recommendationsListElement.innerHTML = '<li>No specific recommendations available at this time.</li>'; }
-         // Add event listeners
-         reviewPaperButton?.addEventListener('click', () => showView('learning-interface-view'));
-         reviewQuizButton?.addEventListener('click', () => showView('quiz-container'));
-         takeFinalTestButton?.addEventListener('click', () => { console.log("Proceeding to Final Test..."); window.location.href = `final_test.html?session=${currentSessionId}`; });
-     } catch (error) {
-         console.error("Failed to load or display recommendations:", error);
-         recommendationsListElement.innerHTML = `<li style="color: red;">Error loading recommendations: ${error.message}</li>`;
-     }
+        if (feedbackResponse) {
+            if (typeof feedbackResponse.is_correct === 'undefined' || typeof feedbackResponse.correct_answer_letter === 'undefined') {
+                throw new Error("Invalid feedback response structure from server.");
+            }
+
+            // Need correct answer TEXT for display, look it up based on letter
+            const correctLetter = feedbackResponse.correct_answer_letter;
+            // TODO: Get the options from the current question data stored somewhere accessible
+            // Or modify the backend to return the correct answer text in the feedback response
+            const correctAnswerText = `[Correct option text for ${correctLetter}]`; // Placeholder - Needs fixing
+
+            quizUi.showFeedback(
+                feedbackResponse.is_correct,
+                correctAnswerText, // Pass the TEXT here
+                feedbackResponse.explanation
+            );
+
+            if (feedbackResponse.quiz_complete === true) {
+                console.log("Quiz completed according to backend feedback.");
+                handleQuizCompletion(); // Call completion handler
+            } else {
+                // Fetch the next question after a short delay
+                const NEXT_QUESTION_DELAY = 1500;
+                console.log(`Fetching next question in ${NEXT_QUESTION_DELAY}ms...`);
+                await new Promise(resolve => setTimeout(resolve, NEXT_QUESTION_DELAY));
+                fetchNextQuestion(); // Fetch next question
+            }
+        } else {
+            throw new Error("Received null or invalid feedback response from server.");
+        }
+
+    } catch (error) {
+        console.error("Error submitting answer:", error);
+        quizUi.showError(`Error submitting answer: ${error.message || 'Please try again.'}`, true);
+    }
 }
+
+
+/**
+ * Fetches and displays the next quiz question.
+ */
+async function fetchNextQuestion() {
+    if (!isQuizActive) return;
+    quizUi.showLoading();
+
+    try {
+        console.log(`DEBUG: Calling getNextLLMQuestion for next question for participant: ${participantId}`);
+        const nextQuestionData = await getNextLLMQuestion(participantId); // API Call
+        console.log("DEBUG: Received response for next question:", nextQuestionData);
+        quizUi.hideLoading();
+
+        if (nextQuestionData && nextQuestionData.mcq_id) {
+            currentMcqId = nextQuestionData.mcq_id;
+            console.log("Next LLM question received. MCQ ID:", currentMcqId);
+            quizUi.showQuestion(nextQuestionData);
+        } else if (nextQuestionData?.quiz_complete === true) {
+            console.log("Received completion signal while fetching next question.");
+            handleQuizCompletion(nextQuestionData.error); // Pass potential error
+        } else {
+            if (nextQuestionData && nextQuestionData.error) {
+                throw new Error(`Server error getting next question: ${nextQuestionData.error}`);
+            }
+            console.warn("Received potentially invalid response or no more questions. Assuming quiz complete.");
+            handleQuizCompletion("No more questions available or invalid response."); // Assume completion
+        }
+    } catch(error) {
+        console.error("Failed to fetch next question:", error);
+        quizUi.hideLoading();
+        quizUi.showError(`Error fetching next question: ${error.message}.`);
+        handleQuizCompletion(error.message); // Assume completion on error
+    }
+}
+
+
+/**
+ * Handles the UI changes when the quiz is marked as complete.
+ * @param {string} [errorMessage=null] Optional error message if completion was due to an error.
+ */
+function handleQuizCompletion(errorMessage = null) {
+    console.log("Handling quiz completion...");
+    isQuizActive = false;
+    currentMcqId = null;
+    let completionMsg = "Quiz finished! You can now proceed to the final test.";
+    if(errorMessage) {
+        completionMsg = `Quiz ended due to an error: ${errorMessage}. Please proceed to the final test.`;
+        // Optionally display this using quizUi.showError as well/instead
+    }
+    quizUi.showCompletionMessage(completionMsg);
+
+    if (finishTaskButton) {
+        finishTaskButton.style.display = ''; // Show the button
+        finishTaskButton.disabled = false;
+    }
+    // Hide the start quiz button if it's somehow still visible
+    if(startQuizButton) startQuizButton.style.display = 'none';
+}
+
+/**
+ * Navigates the user to the final test page.
+ */
+function navigateToFinalTest() {
+    console.log("Proceeding to Final Test...");
+    if (!participantId) {
+        console.error("Cannot navigate to final test: Participant ID missing.");
+        alert("An error occurred. Cannot proceed to the final test.");
+        return;
+    }
+    sendBufferedData(); // Send any remaining interaction data before navigating
+    window.location.href = `/final_test.html?session=${participantId}`; // Use session ID for navigation
+}
+
+/**
+ * Sends any buffered interaction data before page unload or navigation.
+ */
+function sendBufferedData() {
+    console.log("Attempting to send buffered interaction data...");
+    try {
+        if (typeof pdfTracker.sendBufferedPdfInteractions === 'function') {
+            pdfTracker.sendBufferedPdfInteractions();
+            console.log("Called sendBufferedPdfInteractions.");
+        } else {
+            console.warn("sendBufferedPdfInteractions function not available from pdf_tracker module.");
+        }
+        if (typeof heatmapTracker.sendBufferedHeatmapInteractions === 'function') {
+            heatmapTracker.sendBufferedHeatmapInteractions();
+            console.log("Called sendBufferedHeatmapInteractions.");
+        } else {
+            console.warn("sendBufferedHeatmapInteractions function not available from heatmap_tracker module.");
+        }
+    } catch (error) {
+        console.error("Error sending buffered data:", error);
+    }
+}
+
 
 // --- Application Entry Point ---
-document.addEventListener('DOMContentLoaded', initApp);
+document.addEventListener('DOMContentLoaded', initializeApp2Tutor);
 
 // --- Unload Listener ---
-window.addEventListener('beforeunload', () => {
-    if (typeof pdfTracker?.sendBufferedPdfInteractions === 'function') { pdfTracker.sendBufferedPdfInteractions(); }
-    if (typeof heatmapTracker?.sendBufferedHeatmapInteractions === 'function') { heatmapTracker.sendBufferedHeatmapInteractions(); }
-});
+window.addEventListener('beforeunload', sendBufferedData);

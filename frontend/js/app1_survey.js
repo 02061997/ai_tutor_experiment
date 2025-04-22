@@ -70,11 +70,10 @@ async function handleSubmit(event) {
 
             // Redirect based on assigned app
             if (response.assigned_app === 'App1') {
-                // TODO: Redirect to the App1 task interface page
-                // window.location.href = `/app1_task.html?session=${response.session_uuid}`; // Example
-                alert(`Assigned to App1 (Session: ${response.session_uuid}). Redirecting... (App1 Task page not yet implemented)`);
-                 // For now, just show message until App1 task page exists
-                 form.innerHTML = `<h2>Setup Complete</h2><p>You have been assigned to App1.</p><p>Session ID: ${response.session_uuid}</p><p>Assigned Paper: ${response.assigned_paper}</p><p>Please follow researcher instructions for the next step.</p>`;
+                // Redirect to the App1 task interface page
+                window.location.href = `/app1_task.html?session=${response.session_uuid}`;
+                // alert(`Assigned to App1 (Session: ${response.session_uuid}). Redirecting... (App1 Task page not yet implemented)`); // Removed/Commented Out
+                // form.innerHTML = `...`; // Removed/Commented Out
 
             } else if (response.assigned_app === 'App2') {
                 // Redirect to the App2 tutoring interface, passing session ID

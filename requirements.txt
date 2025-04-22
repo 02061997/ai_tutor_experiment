@@ -1,34 +1,52 @@
 # --- Core Web Framework & Server ---
-fastapi
+fastapi~=0.115.12
 uvicorn[standard] # ASGI server with recommended extras
 
 # --- Database & ORM ---
-sqlmodel # ORM and data validation (includes pydantic, sqlalchemy)
-sqlalchemy # Core ORM (often installed with sqlmodel, explicit listing is good)
+sqlmodel~=0.0.24
+sqlalchemy~=2.0.40
 aiosqlite # Async driver for SQLite
 
 # --- Configuration ---
-pydantic-settings # For loading settings from .env file
+pydantic-settings~=2.9.1
 python-dotenv # Used by pydantic-settings to read .env
 
 # --- Adaptive Quiz (CAT) ---
 catsim # Computerized Adaptive Testing simulation library
-numpy # Required by catsim for numerical operations
+numpy~=2.0.2
 greenlet
 
 # --- Security (Add when implemented) ---
-python-jose[cryptography] # For JWT handling (OAuth2/JWT)
-passlib[bcrypt] # For password hashing (if storing researcher credentials)
+python-jose[cryptography]~=3.4.0
+passlib[bcrypt]~=1.7.4
 
 # --- LLM APIs (Add if/when implemented) ---
- oogle-generativeai # For Google AI Gemini API
-groq # For Groq API (LLaMA)
+google-generativeai # For Google AI Gemini API
+groq~=0.22.0
 
 # --- Dashboard Aggregation (Optional but Recommended) ---
-pandas # For efficient data aggregation in dashboard service
+pandas~=2.2.3
 
 # --- Optional but helpful for development ---
 # httpx # For making async HTTP requests (e.g., if calling external APIs directly)
 # pytest # For running tests
 # pytest-asyncio # For testing async code with pytest
 # requests # For synchronous HTTP requests (less common in async FastAPI)
+
+
+# Add these or ensure compatible versions exist:
+google-generativeai>=0.5.0 # Or latest
+langchain>=0.1.0 # Core LangChain for potential text splitting, RAG components
+langchain-google-genai # Langchain integration for Gemini (optional but helpful)
+sentence-transformers>=2.2.0 # For generating text embeddings
+faiss-cpu>=1.7.0 # Vector store (CPU version, GPU available too)
+pypdf>=4.0.0 # For PDF text extraction (if not already using a suitable method)
+langchain-community>=0.0.10 # Or latest compatible version
+langchain-community>=0.0.10
+pydantic~=2.11.3
+protobuf~=5.29.4
+pip~=25.0.1
+distro~=1.9.0
+wheel~=0.45.1
+cryptography~=44.0.2
+pillow~=11.2.1
